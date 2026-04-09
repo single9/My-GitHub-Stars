@@ -66,13 +66,15 @@ fn App() -> Element {
 
 pub fn run() {
     use dioxus::desktop::{Config, WindowBuilder};
+    use dioxus::desktop::tao::dpi::LogicalSize;
 
     dioxus::LaunchBuilder::desktop()
         .with_cfg(
             Config::new().with_window(
                 WindowBuilder::new()
                     .with_title("My GitHub Stars")
-                    .with_always_on_top(false),
+                    .with_always_on_top(false)
+                    .with_inner_size(LogicalSize::new(1200.0_f64, 800.0_f64)),
             ),
         )
         .launch(App);
