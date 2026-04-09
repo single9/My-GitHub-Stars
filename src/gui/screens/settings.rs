@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 
+use crate::ai::KNOWN_MODELS;
 use crate::gui::state::{GuiAppState, GuiScreen};
 
 #[component]
@@ -155,12 +156,9 @@ pub fn SettingsScreen() -> Element {
                         }
                     }
 
-                    LabeledInput {
-                        label: "Model",
-                        placeholder: "gpt-4o",
+                    ModelPicker {
                         value: model_input.read().clone(),
-                        oninput: move |e: Event<FormData>| model_input.set(e.value()),
-                        is_password: false,
+                        onchange: move |v: String| model_input.set(v),
                     }
                 }
 
@@ -224,6 +222,72 @@ fn LabeledInput(
                 placeholder: "{placeholder}",
                 value: "{value}",
                 oninput,
+            }
+        }
+    }
+}
+
+/// Model picker — shows a text input pre-filled with the selected model name plus
+/// a collapsible list of well-known models that can be clicked to populate the field.
+#[component]
+fn ModelPicker(value: String, onchange: EventHandler<String>) -> Element {
+    let mut open = use_signal(|| false);
+    let mut custom = use_signal(move || value.clone());
+
+    rsx! {
+        div { style: "margin-bottom:8px;position:relative;",
+            label { style: "color:#8b949e;font-size:11px;display:block;margin-bottom:4px;", "Model" }
+
+            // Text input + toggle button side-by-side
+            div { style: "display:flex;gap:6px;",
+                input {
+                    r#type: "text",
+                    style: "flex:1;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-family:inherit;font-size:13px;padding:7px 10px;box-sizing:border-box;outline:none;",
+                    placeholder: "gpt-4o-mini",
+                    value: "{custom.read()}",
+                    oninput: move |e: Event<FormData>| {
+                        let v = e.value();
+                        custom.set(v.clone());
+                        onchange.call(v);
+                    },
+                }
+                button {
+                    r#type: "button",
+                    style: "background:#21262d;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;font-family:inherit;font-size:12px;padding:6px 10px;white-space:nowrap;",
+                    onclick: move |_| { let cur = *open.read(); open.set(!cur); },
+                    if *open.read() { "▲ Hide" } else { "▼ Pick" }
+                }
+            }
+
+            // Dropdown list of known models
+            if *open.read() {
+                div { style: "position:absolute;z-index:100;width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;margin-top:4px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.5);",
+                    for (id, desc) in KNOWN_MODELS.iter() {
+                        {
+                            let id_str = id.to_string();
+                            let id_str2 = id_str.clone();
+                            let is_selected = *custom.read() == id_str;
+                            let row_bg = if is_selected { "#1f6feb22" } else { "transparent" };
+                            rsx! {
+                                div {
+                                    key: "{id_str}",
+                                    style: "display:flex;justify-content:space-between;padding:9px 12px;cursor:pointer;background:{row_bg};border-bottom:1px solid #21262d;",
+                                    onclick: move |_| {
+                                        custom.set(id_str2.clone());
+                                        onchange.call(id_str2.clone());
+                                        open.set(false);
+                                    },
+                                    span { style: "color:#c9d1d9;font-size:13px;font-family:monospace;", "{id_str}" }
+                                    span { style: "color:#8b949e;font-size:11px;margin-left:8px;", "{desc}" }
+                                }
+                            }
+                        }
+                    }
+                    div {
+                        style: "padding:8px 12px;",
+                        span { style: "color:#8b949e;font-size:11px;", "Or type a custom model name above" }
+                    }
+                }
             }
         }
     }
