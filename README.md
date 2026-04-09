@@ -8,9 +8,8 @@ A terminal UI app for browsing, searching, and categorising your GitHub starred 
 │  ⊕ Categories   : 94                                          │
 │  ↺ Last sync    : 2026-04-09 03:32 UTC                        │
 │                                                               │
-│  [b] Browse by category   [/] Search repos                    │
-│  [s] Settings             [u] Sync now                        │
-│  [q] Quit                                                     │
+│  [b] Browse by category   [/] Search repos   [i] AI Search   │
+│  [s] Settings             [u] Sync now       [q] Quit         │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -18,7 +17,8 @@ A terminal UI app for browsing, searching, and categorising your GitHub starred 
 
 - **Browse** stars grouped by programming language and GitHub topic tags
 - **Search** across repo name, description, and topics in real time
-- **AI Search** — describe what you need in plain language; the app queries an OpenAI-compatible LLM to find the most relevant repos from your stars
+- **AI Search** — describe what you need in plain language; the app finds the most relevant repos from your stars using an LLM
+- **Model picker** — choose from popular GitHub Models or enter any custom model ID
 - **Sync** fetches all starred repos from the GitHub API and stores them locally (SQLite)
 - **Auto-update** runs a background sync on startup so the UI is immediately usable
 - **OAuth Device Flow** — no secrets stored in code; authorisation happens in your browser
@@ -55,20 +55,49 @@ Enter the code there to authorise — the app starts automatically once confirme
 
 ## Usage
 
+### Home screen
+
 | Key | Action |
 |-----|--------|
 | `b` | Browse repos by category |
-| `/` | Search repos |
+| `/` | Search repos (real-time) |
 | `i` | AI Search (natural language) |
-| `s` | Settings (toggle auto-update, set AI key, re-auth) |
+| `s` | Settings |
 | `u` | Manual sync |
 | `q` | Quit |
 
-Inside **Browse**: `Tab` switches between the category list and repo list; `↑↓` to navigate; `Enter` on a repo opens it in your browser.
+### Browse
 
-Inside **Search**: type to filter; `↑↓` to select; `Enter` to open in browser; `Esc` to go back.
+`Tab` switches between the category list and repo list. `↑↓` to navigate; `Enter` on a repo opens it in your browser.
 
-Inside **AI Search**: type a natural-language query (e.g. *"async HTTP client in Rust"*) and press `Enter` to submit. The app sends your starred repos to the configured LLM and returns the most relevant results. `Tab` moves focus to the results list; `↑↓` to select; `Enter` to open in browser; `Esc` returns to the query field.
+### Search
+
+Type to filter; `↑↓` to select; `Enter` to open in browser; `Esc` to go back.
+
+### AI Search
+
+Type a natural-language query — e.g. *"async HTTP client in Rust"* or *"vector database for Python"* — and press `Enter`.
+
+The app first narrows candidates by keyword matching, then sends them to the configured LLM to rank by relevance.
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Submit query |
+| `Tab` | Move focus to results list |
+| `↑↓` | Navigate results |
+| `Enter` | Open selected repo in browser |
+| `Esc` | Return to query field / back to Home |
+
+### Settings (`s`)
+
+| Key | Action |
+|-----|--------|
+| `a` | Toggle auto-update on startup |
+| `c` | Toggle GitHub Copilot mode (GitHub Models API) |
+| `p` | Set GitHub PAT for Copilot mode |
+| `k` | Set OpenAI API key |
+| `m` | Pick or change the AI model |
+| `l` | Log out (clear stored token) |
 
 ## Data storage
 
@@ -85,34 +114,57 @@ Inside **AI Search**: type a natural-language query (e.g. *"async HTTP client in
 
 ## AI Search
 
-AI Search sends your entire starred-repo list (name, description, language, topics) to an OpenAI-compatible chat API and asks the model to rank repos by relevance to your natural-language query.
+AI Search uses a two-stage pipeline:
 
-### Setup
+1. **Keyword pre-filter** — scores each starred repo against your query words (name, description, language, topics) and takes the top 150 candidates
+2. **LLM ranking** — sends those candidates to the configured model and asks it to rank by relevance
 
-**Option A — GitHub Copilot / GitHub Models (recommended)**
+This keeps requests well within token limits regardless of how many stars you have.
 
-Uses the **GitHub Models API** (`models.inference.ai.azure.com`) — OpenAI-compatible, authenticated with a GitHub Personal Access Token (PAT). Copilot subscribers get higher rate limits; it's also available on GitHub's free tier.
+### Option A — GitHub Models (recommended)
+
+Uses the **GitHub Models API** (`models.inference.ai.azure.com`) — OpenAI-compatible, no extra subscription needed. Copilot subscribers get higher rate limits; it's also available on the free tier.
 
 1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Generate new token (classic)** — no scopes needed
-2. Open **Settings** (`s` from Home)
-3. Press `c` to toggle **GitHub Copilot ON**
-4. Press `p` and paste the PAT, then press `Enter`
+2. Open **Settings** (`s`)
+3. Press `c` to enable **GitHub Copilot / GitHub Models** mode
+4. Press `p`, paste your PAT, and press `Enter`
+5. Press `m` to pick a model (default: `gpt-4o-mini`)
 
-**Option B — OpenAI API key**
+### Option B — OpenAI API key
 
-1. Open **Settings** (`s` from Home)
-2. Press `k` and enter your OpenAI API key, then press `Enter`
+1. Open **Settings** (`s`)
+2. Press `k`, enter your OpenAI API key, and press `Enter`
+3. Press `m` to pick a model if desired
+
+### Model picker
+
+Press `m` in Settings to open the model selection menu:
+
+```
+┌─ Select Model  [↑/↓] navigate  [Enter] select  [Esc] cancel ─────────┐
+│ ● gpt-4o-mini                    OpenAI  · fast, cheap (default)       │
+│   gpt-4o                         OpenAI  · powerful                    │
+│   o3-mini                        OpenAI  · reasoning                   │
+│   meta-llama-3.3-70b-instruct    Meta    · open-source, multilingual   │
+│   mistral-large-2411             Mistral · multilingual                │
+│   phi-4                          Microsoft · small, fast               │
+│   deepseek-r1                    DeepSeek · reasoning                  │
+│   ...                                                                  │
+│   ✎ Custom model name...                                               │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+`●` marks the currently active model. The **✎ Custom** option lets you type any model ID — useful for Ollama, LM Studio, or other self-hosted endpoints.
 
 ### Custom base URL / local models
 
-Edit `config.toml` directly to use a different endpoint (e.g. Ollama, LM Studio):
+Edit `config.toml` directly to point at a different endpoint:
 
 ```toml
 openai_base_url = "http://localhost:11434/v1"
 openai_model    = "llama3"
 ```
-
-The default model is `gpt-4o-mini`.
 
 ## Architecture
 
@@ -120,7 +172,7 @@ The default model is `gpt-4o-mini`.
 src/
 ├── main.rs          Entry point — load config, open DB, run event loop
 ├── app.rs           App state machine, event handling, background sync
-├── ai/              OpenAI-compatible client for natural-language search
+├── ai/              LLM client (OpenAI-compatible) + known model list
 ├── api/             GitHub REST API client (paginated starred fetch)
 ├── auth/            OAuth Device Flow (request code → poll for token)
 ├── classifier/      Categorise repos by language + topic tags
