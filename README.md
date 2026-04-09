@@ -1,4 +1,4 @@
-# GitHub Stars Pocket (`gsp`)
+# My GitHub Stars (`ghstars`)
 
 A terminal UI app for browsing, searching, and categorising your GitHub starred repositories.
 
@@ -46,7 +46,7 @@ Requires Rust 1.85+ (edition 2024).
 ### 2. First launch
 
 ```bash
-gsp
+ghstars
 ```
 
 On first run you will be prompted to paste your **Client ID**.
