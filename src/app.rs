@@ -109,6 +109,8 @@ pub struct App {
     // Settings — API key editing
     pub settings_editing_key: bool,
     pub settings_key_input: String,
+    /// Which settings field is being edited: "openai" | "copilot"
+    pub settings_editing_field: String,
 
     // Stats
     pub total_repos: i64,
@@ -157,6 +159,7 @@ impl App {
             ai_search_done_rx: None,
             settings_editing_key: false,
             settings_key_input: String::new(),
+            settings_editing_field: String::new(),
             total_repos: 0,
             total_categories: 0,
             tick_count: 0,
@@ -427,13 +430,24 @@ impl App {
                 KeyCode::Esc => {
                     self.settings_editing_key = false;
                     self.settings_key_input.clear();
+                    self.settings_editing_field.clear();
                 }
                 KeyCode::Enter => {
                     let val = self.settings_key_input.trim().to_string();
-                    self.config.openai_api_key = if val.is_empty() { None } else { Some(val) };
+                    match self.settings_editing_field.as_str() {
+                        "copilot" => {
+                            self.config.copilot_github_token =
+                                if val.is_empty() { None } else { Some(val) };
+                        }
+                        _ => {
+                            self.config.openai_api_key =
+                                if val.is_empty() { None } else { Some(val) };
+                        }
+                    }
                     let _ = self.config.save();
                     self.settings_editing_key = false;
                     self.settings_key_input.clear();
+                    self.settings_editing_field.clear();
                 }
                 KeyCode::Backspace => { self.settings_key_input.pop(); }
                 KeyCode::Char(c) => { self.settings_key_input.push(c); }
@@ -448,11 +462,14 @@ impl App {
                 let _ = self.config.save();
             }
             KeyCode::Char('k') => {
-                self.settings_key_input = self
-                    .config
-                    .openai_api_key
-                    .clone()
-                    .unwrap_or_default();
+                self.settings_key_input = self.config.openai_api_key.clone().unwrap_or_default();
+                self.settings_editing_field = "openai".to_string();
+                self.settings_editing_key = true;
+            }
+            KeyCode::Char('p') => {
+                self.settings_key_input =
+                    self.config.copilot_github_token.clone().unwrap_or_default();
+                self.settings_editing_field = "copilot".to_string();
                 self.settings_editing_key = true;
             }
             KeyCode::Char('c') => {
@@ -784,9 +801,18 @@ pub async fn run_app(
                         let use_copilot = app.config.use_copilot;
 
                         let client_opt: Option<AiClient> = if use_copilot {
-                            app.config.github_token.as_deref().map(|t| {
-                                AiClient::new_copilot(t, model.as_deref())
-                            })
+                            match app.config.copilot_github_token.as_deref() {
+                                Some(t) => Some(AiClient::new_copilot(t, model.as_deref())),
+                                None => {
+                                    app.ai_loading = false;
+                                    app.ai_error = Some(
+                                        "Copilot token not set. In Settings [s], press [p] and \
+                                         paste the output of: gh auth token"
+                                            .to_string(),
+                                    );
+                                    None
+                                }
+                            }
                         } else {
                             app.config.openai_api_key.as_deref().map(|k| {
                                 AiClient::new(
@@ -809,12 +835,12 @@ pub async fn run_app(
                                 }
                             });
                         } else {
+                            // Only reached for OpenAI branch when api_key is None
                             app.ai_loading = false;
-                            app.ai_error = Some(if use_copilot {
-                                "GitHub token not found. Please log in first.".to_string()
-                            } else {
-                                "No OpenAI API key configured. Set one in Settings [s] → [k].".to_string()
-                            });
+                            app.ai_error = Some(
+                                "No OpenAI API key configured. Set one in Settings [s] → [k]."
+                                    .to_string(),
+                            );
                         }
                     }
 

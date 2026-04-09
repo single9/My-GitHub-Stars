@@ -528,6 +528,38 @@ fn draw_settings(frame: &mut Frame, app: &App) {
             },
         ]),
         Line::from(vec![
+            Span::styled(
+                if copilot_on { "  [p] Copilot GitHub token   : " } else { "      Copilot GitHub token   : " },
+                Style::default().fg(if copilot_on { Color::White } else { Color::DarkGray }),
+            ),
+            Span::styled(
+                app.config.copilot_github_token.as_deref()
+                    .map(|k| if k.len() > 8 { format!("{}…", &k[..8]) } else { k.to_string() })
+                    .unwrap_or_else(|| "(not set)".to_string()),
+                if !copilot_on {
+                    Style::default().fg(Color::DarkGray)
+                } else if app.config.copilot_github_token.is_some() {
+                    Style::default().fg(Color::Green)
+                } else {
+                    Style::default().fg(Color::Red)
+                },
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "      Tip: run ",
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                "gh auth token",
+                Style::default().fg(Color::Cyan),
+            ),
+            Span::styled(
+                " and paste the result above",
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]),
+        Line::from(vec![
             Span::styled("  [k] OpenAI API key         : ", Style::default().fg(
                 if copilot_on { Color::DarkGray } else { Color::White }
             )),
@@ -559,8 +591,13 @@ fn draw_settings(frame: &mut Frame, app: &App) {
 
     if app.settings_editing_key {
         lines.push(Line::from(""));
+        let field_label = if app.settings_editing_field == "copilot" {
+            "Editing Copilot GitHub token — Enter to save, Esc to cancel"
+        } else {
+            "Editing OpenAI API key — Enter to save, Esc to cancel"
+        };
         lines.push(Line::from(Span::styled(
-            "  Editing API key — Enter to save, Esc to cancel",
+            format!("  {}", field_label),
             Style::default().fg(Color::Yellow),
         )));
     }
@@ -569,12 +606,17 @@ fn draw_settings(frame: &mut Frame, app: &App) {
 
     if app.settings_editing_key {
         let input_display = format!("  {}▌", app.settings_key_input);
+        let field_title = if app.settings_editing_field == "copilot" {
+            " Copilot GitHub Token (gh auth token) "
+        } else {
+            " OpenAI API Key "
+        };
         let input = Paragraph::new(input_display)
             .style(Style::default().fg(Color::White))
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title(" OpenAI API Key ")
+                    .title(field_title)
                     .border_style(Style::default().fg(Color::Yellow)),
             );
         frame.render_widget(input, chunks[1]);

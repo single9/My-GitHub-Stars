@@ -25,6 +25,11 @@ pub struct Config {
     /// The existing GitHub token is exchanged for a Copilot token automatically.
     #[serde(default)]
     pub use_copilot: bool,
+    /// A GitHub token used to obtain a short-lived Copilot session token.
+    /// Must come from an official GitHub app (e.g. `gh auth token`).
+    /// If unset and use_copilot is true, the app will prompt for one.
+    #[serde(default)]
+    pub copilot_github_token: Option<String>,
 }
 
 fn default_auto_update() -> bool { true }
@@ -40,6 +45,7 @@ impl Default for Config {
             openai_base_url: None,
             openai_model: None,
             use_copilot: false,
+            copilot_github_token: None,
         }
     }
 }
