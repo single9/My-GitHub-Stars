@@ -439,6 +439,10 @@ impl App {
                             self.config.copilot_github_token =
                                 if val.is_empty() { None } else { Some(val) };
                         }
+                        "model" => {
+                            self.config.openai_model =
+                                if val.is_empty() { None } else { Some(val) };
+                        }
                         _ => {
                             self.config.openai_api_key =
                                 if val.is_empty() { None } else { Some(val) };
@@ -470,6 +474,11 @@ impl App {
                 self.settings_key_input =
                     self.config.copilot_github_token.clone().unwrap_or_default();
                 self.settings_editing_field = "copilot".to_string();
+                self.settings_editing_key = true;
+            }
+            KeyCode::Char('m') => {
+                self.settings_key_input = self.config.openai_model.clone().unwrap_or_default();
+                self.settings_editing_field = "model".to_string();
                 self.settings_editing_key = true;
             }
             KeyCode::Char('c') => {
