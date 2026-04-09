@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{oneshot, watch};
 
 use crate::{
+    ai::AiClient,
     api::{ApiClient, StarredRepo},
     auth::{AuthClient, DeviceCodeResponse, PollResult},
     classifier::Classifier,
@@ -44,6 +45,7 @@ pub enum Screen {
     Home,
     Browse,
     Search,
+    AiSearch,
     Settings,
     Syncing,
 }
@@ -95,6 +97,19 @@ pub struct App {
     pub search_query: String,
     pub search_results: Vec<RepoRow>,
 
+    // AI Search state
+    pub ai_query: String,
+    pub ai_results: Vec<RepoRow>,
+    pub ai_loading: bool,
+    pub ai_error: Option<String>,
+    /// true = query input focused; false = results list focused
+    pub ai_focus_query: bool,
+    ai_search_done_rx: Option<oneshot::Receiver<Result<Vec<String>, String>>>,
+
+    // Settings — API key editing
+    pub settings_editing_key: bool,
+    pub settings_key_input: String,
+
     // Stats
     pub total_repos: i64,
     pub total_categories: i64,
@@ -134,6 +149,14 @@ impl App {
             repo_list_state: ListState::default(),
             search_query: String::new(),
             search_results: Vec::new(),
+            ai_query: String::new(),
+            ai_results: Vec::new(),
+            ai_loading: false,
+            ai_error: None,
+            ai_focus_query: true,
+            ai_search_done_rx: None,
+            settings_editing_key: false,
+            settings_key_input: String::new(),
             total_repos: 0,
             total_categories: 0,
             tick_count: 0,
@@ -198,6 +221,7 @@ impl App {
             Screen::Home => self.handle_home_key(key),
             Screen::Browse => self.handle_browse_key(key, db),
             Screen::Search => self.handle_search_key(key, db),
+            Screen::AiSearch => self.handle_ai_search_key(key, db),
             Screen::Settings => self.handle_settings_key(key),
             Screen::Syncing => {
                 if matches!(
@@ -248,6 +272,14 @@ impl App {
                 self.search_results.clear();
                 self.selected_repo = None;
                 self.screen = Screen::Search;
+            }
+            KeyCode::Char('i') => {
+                self.ai_query.clear();
+                self.ai_results.clear();
+                self.ai_error = None;
+                self.ai_focus_query = true;
+                self.selected_repo = None;
+                self.screen = Screen::AiSearch;
             }
             KeyCode::Char('s') => self.screen = Screen::Settings,
             KeyCode::Char('u') => self.screen = Screen::Syncing,
@@ -326,12 +358,102 @@ impl App {
         }
     }
 
+    fn handle_ai_search_key(&mut self, key: crossterm::event::KeyEvent, db: &Database) {
+        if self.ai_focus_query {
+            match key.code {
+                KeyCode::Esc => self.screen = Screen::Home,
+                KeyCode::Tab => {
+                    if !self.ai_results.is_empty() {
+                        self.ai_focus_query = false;
+                    }
+                }
+                KeyCode::Backspace => {
+                    self.ai_query.pop();
+                }
+                KeyCode::Char(c) => {
+                    self.ai_query.push(c);
+                }
+                KeyCode::Enter => {
+                    let trimmed = self.ai_query.trim().to_string();
+                    if !trimmed.is_empty() && !self.ai_loading {
+                        // Kick off AI search — actual spawn happens in run_app tick
+                        self.ai_loading = true;
+                        self.ai_error = None;
+                        self.ai_results.clear();
+                        self.selected_repo = None;
+                        // Store the trimmed query back so the task picks it up
+                        self.ai_query = trimmed;
+                        // Signal to run_app that we need to start the search
+                        // We set ai_search_done_rx to None; run_app will detect ai_loading=true
+                        // and no receiver present → spawn the task.
+                        // (The actual spawn is in the run loop using a flag approach below.)
+                        // We use a sentinel: store all repos in a temporary field so the
+                        // spawn has what it needs. Instead we rely on the run loop to do it.
+                        // Nothing more needed here; run_app handles it.
+                        let _ = db; // satisfy unused variable warning
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            // Results pane focused
+            match key.code {
+                KeyCode::Esc => {
+                    self.ai_focus_query = true;
+                }
+                KeyCode::Up => {
+                    if let Some(i) = self.selected_repo {
+                        self.selected_repo = Some(i.saturating_sub(1));
+                    }
+                }
+                KeyCode::Down => {
+                    let max = self.ai_results.len().saturating_sub(1);
+                    let new = self.selected_repo.map(|i| (i + 1).min(max)).unwrap_or(0);
+                    if !self.ai_results.is_empty() {
+                        self.selected_repo = Some(new);
+                    }
+                }
+                KeyCode::Enter => {
+                    self.open_selected_repo_url(&self.ai_results.clone());
+                }
+                _ => {}
+            }
+        }
+    }
+
     fn handle_settings_key(&mut self, key: crossterm::event::KeyEvent) {
+        if self.settings_editing_key {
+            match key.code {
+                KeyCode::Esc => {
+                    self.settings_editing_key = false;
+                    self.settings_key_input.clear();
+                }
+                KeyCode::Enter => {
+                    let val = self.settings_key_input.trim().to_string();
+                    self.config.openai_api_key = if val.is_empty() { None } else { Some(val) };
+                    let _ = self.config.save();
+                    self.settings_editing_key = false;
+                    self.settings_key_input.clear();
+                }
+                KeyCode::Backspace => { self.settings_key_input.pop(); }
+                KeyCode::Char(c) => { self.settings_key_input.push(c); }
+                _ => {}
+            }
+            return;
+        }
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => self.screen = Screen::Home,
             KeyCode::Char('a') => {
                 self.config.auto_update = !self.config.auto_update;
                 let _ = self.config.save();
+            }
+            KeyCode::Char('k') => {
+                self.settings_key_input = self
+                    .config
+                    .openai_api_key
+                    .clone()
+                    .unwrap_or_default();
+                self.settings_editing_key = true;
             }
             KeyCode::Char('l') => {
                 self.config.github_token = None;
@@ -649,6 +771,67 @@ pub async fn run_app(
                         if app.tick_count % 15 == 0 {
                             app.sync_status = SyncStatus::Idle;
                             app.screen = Screen::Home;
+                        }
+                    }
+
+                    // ── AI Search: spawn task when loading flag is set ──
+                    if app.ai_loading && app.ai_search_done_rx.is_none() {
+                        if let Some(api_key) = app.config.openai_api_key.clone() {
+                            let query = app.ai_query.clone();
+                            let base_url = app.config.openai_base_url.clone();
+                            let model = app.config.openai_model.clone();
+                            let all_repos = db.get_all_repos().unwrap_or_default();
+                            let (done_tx, done_rx) = oneshot::channel::<Result<Vec<String>, String>>();
+                            app.ai_search_done_rx = Some(done_rx);
+                            tokio::spawn(async move {
+                                let client = AiClient::new(
+                                    &api_key,
+                                    base_url.as_deref(),
+                                    model.as_deref(),
+                                );
+                                match client.search(&query, &all_repos).await {
+                                    Ok(names) => { let _ = done_tx.send(Ok(names)); }
+                                    Err(e)    => { let _ = done_tx.send(Err(e.to_string())); }
+                                }
+                            });
+                        } else {
+                            // No API key configured
+                            app.ai_loading = false;
+                            app.ai_error = Some("No OpenAI API key configured. Set one in Settings [s] → [k].".to_string());
+                        }
+                    }
+
+                    // ── AI Search: receive result ──
+                    if app.ai_loading {
+                        let ai_result: Option<Result<Vec<String>, String>> = {
+                            if let Some(rx) = &mut app.ai_search_done_rx {
+                                match rx.try_recv() {
+                                    Ok(result) => Some(result),
+                                    Err(oneshot::error::TryRecvError::Empty) => None,
+                                    Err(oneshot::error::TryRecvError::Closed) => {
+                                        Some(Err("AI task exited unexpectedly".into()))
+                                    }
+                                }
+                            } else { None }
+                        };
+                        if let Some(result) = ai_result {
+                            app.ai_search_done_rx = None;
+                            app.ai_loading = false;
+                            match result {
+                                Ok(names) => {
+                                    app.ai_results = db.get_repos_by_full_names(&names).unwrap_or_default();
+                                    app.selected_repo = if app.ai_results.is_empty() { None } else { Some(0) };
+                                    app.ai_error = None;
+                                    if !app.ai_results.is_empty() {
+                                        app.ai_focus_query = false;
+                                    }
+                                }
+                                Err(e) => {
+                                    app.ai_error = Some(e);
+                                    app.ai_results.clear();
+                                    app.selected_repo = None;
+                                }
+                            }
                         }
                     }
                 }

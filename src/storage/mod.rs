@@ -164,6 +164,58 @@ impl Database {
         )
     }
 
+    /// Fetch repos whose `full_name` appears in `names`, preserving the order of `names`.
+    pub fn get_repos_by_full_names(&self, names: &[String]) -> Result<Vec<RepoRow>> {
+        if names.is_empty() {
+            return Ok(Vec::new());
+        }
+        // Fetch all matching rows in a single query, then re-order by the provided list.
+        let placeholders = names
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT r.id, r.github_id, r.name, r.full_name, r.owner, r.description,
+                    r.language, r.url, r.stars_count, r.topics, r.starred_at
+             FROM repos r
+             WHERE r.full_name IN ({placeholders})"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let params: Vec<&dyn rusqlite::ToSql> = names
+            .iter()
+            .map(|n| n as &dyn rusqlite::ToSql)
+            .collect();
+        let rows = stmt
+            .query_map(params.as_slice(), |row| {
+                Ok(RepoRow {
+                    id: row.get(0)?,
+                    github_id: row.get(1)?,
+                    name: row.get(2)?,
+                    full_name: row.get(3)?,
+                    owner: row.get(4)?,
+                    description: row.get(5)?,
+                    language: row.get(6)?,
+                    url: row.get(7)?,
+                    stars_count: row.get(8)?,
+                    topics_json: row.get(9)?,
+                    starred_at: row.get(10)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .context("Failed to query repos by full_names")?;
+
+        // Re-order to match the AI-ranked order
+        let mut ordered: Vec<RepoRow> = Vec::with_capacity(rows.len());
+        for name in names {
+            if let Some(r) = rows.iter().find(|r| &r.full_name == name) {
+                ordered.push(r.clone());
+            }
+        }
+        Ok(ordered)
+    }
+
     pub fn get_all_repos(&self) -> Result<Vec<RepoRow>> {
         self.query_repos(
             "SELECT r.id, r.github_id, r.name, r.full_name, r.owner, r.description,

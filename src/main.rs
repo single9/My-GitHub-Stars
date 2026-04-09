@@ -1,4 +1,5 @@
 mod app;
+mod ai;
 mod auth;
 mod api;
 mod classifier;

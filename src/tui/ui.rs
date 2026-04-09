@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{App, Screen, SyncStatus};
+use crate::ai::{DEFAULT_BASE_URL, DEFAULT_MODEL};
 
 fn fmt_stars(n: i64) -> String {
     if n >= 1_000_000 {
@@ -25,6 +26,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         Screen::Home => draw_home(frame, app),
         Screen::Browse => draw_browse(frame, app),
         Screen::Search => draw_search(frame, app),
+        Screen::AiSearch => draw_ai_search(frame, app),
         Screen::Settings => draw_settings(frame, app),
         Screen::Syncing => draw_syncing(frame, app),
     }
@@ -224,13 +226,15 @@ fn draw_home(frame: &mut Frame, app: &App) {
             Span::raw(" Search repos"),
         ]),
         Line::from(vec![
-            Span::styled("  [s]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            Span::raw(" Settings             "),
-            Span::styled("[u]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            Span::raw(" Sync now"),
+            Span::styled("  [i]", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+            Span::raw(" AI Search            "),
+            Span::styled("[s]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(" Settings"),
         ]),
         Line::from(vec![
-            Span::styled("  [q]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled("  [u]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(" Sync now             "),
+            Span::styled("[q]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
             Span::raw(" Quit"),
         ]),
     ])
@@ -449,7 +453,6 @@ fn draw_settings(frame: &mut Frame, app: &App) {
         .config
         .client_id()
         .map(|id| {
-            // Show first 8 chars + asterisks for privacy
             if id.len() > 8 {
                 format!("{}…", &id[..8])
             } else {
@@ -458,7 +461,32 @@ fn draw_settings(frame: &mut Frame, app: &App) {
         })
         .unwrap_or_else(|| "(not set)".to_string());
 
-    let lines = vec![
+    let ai_key_display = app
+        .config
+        .openai_api_key
+        .as_deref()
+        .map(|k| {
+            if k.len() > 8 { format!("{}…", &k[..8]) } else { k.to_string() }
+        })
+        .unwrap_or_else(|| "(not set)".to_string());
+
+    let base_url = app
+        .config
+        .openai_base_url
+        .as_deref()
+        .unwrap_or(DEFAULT_BASE_URL);
+    let model = app
+        .config
+        .openai_model
+        .as_deref()
+        .unwrap_or(DEFAULT_MODEL);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(3)])
+        .split(inner);
+
+    let mut lines = vec![
         Line::from(""),
         Line::from(vec![
             Span::styled("  [a] Auto-update on startup : ", Style::default().fg(Color::White)),
@@ -477,13 +505,219 @@ fn draw_settings(frame: &mut Frame, app: &App) {
             Span::styled(&client_id_display, Style::default().fg(Color::Cyan)),
         ]),
         Line::from(""),
+        Line::from(Span::styled("  ── AI Search ──────────────────────────────────────", Style::default().fg(Color::DarkGray))),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  [k] OpenAI API key         : ", Style::default().fg(Color::White)),
+            Span::styled(
+                &ai_key_display,
+                if app.config.openai_api_key.is_some() {
+                    Style::default().fg(Color::Green)
+                } else {
+                    Style::default().fg(Color::Red)
+                },
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("      Base URL               : ", Style::default().fg(Color::White)),
+            Span::styled(base_url, Style::default().fg(Color::Cyan)),
+        ]),
+        Line::from(vec![
+            Span::styled("      Model                  : ", Style::default().fg(Color::White)),
+            Span::styled(model, Style::default().fg(Color::Cyan)),
+        ]),
+        Line::from(""),
         Line::from(vec![
             Span::styled("  [l] Log out", Style::default().fg(Color::White)),
             Span::styled(" (clears stored token)", Style::default().fg(Color::DarkGray)),
         ]),
     ];
 
-    frame.render_widget(Paragraph::new(lines), inner);
+    if app.settings_editing_key {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  Editing API key — Enter to save, Esc to cancel",
+            Style::default().fg(Color::Yellow),
+        )));
+    }
+
+    frame.render_widget(Paragraph::new(lines), chunks[0]);
+
+    if app.settings_editing_key {
+        let input_display = format!("  {}▌", app.settings_key_input);
+        let input = Paragraph::new(input_display)
+            .style(Style::default().fg(Color::White))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" OpenAI API Key ")
+                    .border_style(Style::default().fg(Color::Yellow)),
+            );
+        frame.render_widget(input, chunks[1]);
+    }
+}
+
+// ── AI search ─────────────────────────────────────────────────────────────────
+
+fn draw_ai_search(frame: &mut Frame, app: &mut App) {
+    let area = frame.area();
+    let hint = if app.ai_focus_query {
+        "AI Search  [Enter] submit  [Tab] → results  [Esc] back"
+    } else {
+        "AI Search  [↑/↓] navigate  [Enter] open URL  [Esc] → query"
+    };
+    let block = title_block(hint);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .split(inner);
+
+    // Query input
+    let cursor = if app.ai_focus_query { "▌" } else { "" };
+    let query_display = format!("  {}{}", app.ai_query, cursor);
+    let query_border_color = if app.ai_focus_query {
+        Color::Yellow
+    } else {
+        Color::DarkGray
+    };
+    let input = Paragraph::new(query_display)
+        .style(Style::default().fg(Color::White))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Natural-language query (Enter to search) ")
+                .border_style(Style::default().fg(query_border_color)),
+        );
+    frame.render_widget(input, chunks[0]);
+
+    // Status / results area
+    let result_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(chunks[1]);
+
+    if app.ai_loading {
+        let spin = spinner[app.tick_count % spinner.len()];
+        let loading = Paragraph::new(format!("  {} Querying AI…", spin))
+            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .block(title_block("Results"));
+        frame.render_widget(loading, result_chunks[0]);
+        frame.render_widget(
+            Paragraph::new("").block(title_block("Detail")),
+            result_chunks[1],
+        );
+        return;
+    }
+
+    if let Some(err) = &app.ai_error {
+        let err_msg = Paragraph::new(vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                format!("  ✗ {}", err),
+                Style::default().fg(Color::Red),
+            )),
+        ])
+        .block(title_block("Results"))
+        .wrap(Wrap { trim: true });
+        frame.render_widget(err_msg, result_chunks[0]);
+        frame.render_widget(
+            Paragraph::new("").block(title_block("Detail")),
+            result_chunks[1],
+        );
+        return;
+    }
+
+    // Results list
+    let repo_items: Vec<ListItem> = app
+        .ai_results
+        .iter()
+        .map(|r| {
+            ListItem::new(vec![Line::from(vec![
+                Span::styled(
+                    &r.name,
+                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("  {} ", r.language.as_deref().unwrap_or("")),
+                    Style::default().fg(Color::Cyan),
+                ),
+                Span::styled(
+                    format!("★ {}", fmt_stars(r.stars_count)),
+                    Style::default().fg(Color::Yellow),
+                ),
+            ])])
+        })
+        .collect();
+
+    let mut repo_state = ListState::default();
+    repo_state.select(app.selected_repo);
+
+    let results_title = if app.ai_results.is_empty() && !app.ai_query.is_empty() {
+        "Results (0 — try a different query)".to_string()
+    } else {
+        format!("Results ({})", app.ai_results.len())
+    };
+    let result_list = List::new(repo_items)
+        .block(title_block(&results_title))
+        .highlight_style(highlight_style())
+        .highlight_symbol("▶ ");
+    frame.render_stateful_widget(result_list, result_chunks[0], &mut repo_state);
+    app.repo_list_state = repo_state;
+
+    // Detail panel
+    let detail = if let Some(idx) = app.selected_repo {
+        if let Some(repo) = app.ai_results.get(idx) {
+            let topics = repo.topics();
+            Paragraph::new(vec![
+                Line::from(vec![
+                    Span::styled("Name    : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        &repo.full_name,
+                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    ),
+                ]),
+                Line::from(vec![
+                    Span::styled("Lang    : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        repo.language.clone().unwrap_or_else(|| "—".to_string()),
+                        Style::default().fg(Color::Cyan),
+                    ),
+                ]),
+                Line::from(vec![
+                    Span::styled("Topics  : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(topics.join(", "), Style::default().fg(Color::Magenta)),
+                ]),
+                Line::from(vec![
+                    Span::styled("URL     : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        &repo.url,
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED),
+                    ),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("Desc    : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        repo.description.clone().unwrap_or_else(|| "No description".to_string()),
+                        Style::default().fg(Color::White),
+                    ),
+                ]),
+            ])
+            .wrap(Wrap { trim: true })
+        } else {
+            Paragraph::new("Select a result to see details.")
+        }
+    } else if app.ai_query.is_empty() {
+        Paragraph::new("Type a natural-language query and press Enter…")
+    } else {
+        Paragraph::new("Select a result to see details.")
+    };
+    frame.render_widget(detail.block(title_block("Detail  [Enter] open in browser")), result_chunks[1]);
 }
 
 // ── syncing ───────────────────────────────────────────────────────────────────

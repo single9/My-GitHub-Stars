@@ -11,6 +11,12 @@ pub struct Config {
     /// Create one at: https://github.com/settings/developers
     /// → "New OAuth App" → enable "Device Flow"
     pub client_id: Option<String>,
+    /// OpenAI-compatible API key for AI search
+    pub openai_api_key: Option<String>,
+    /// OpenAI-compatible base URL (default: https://api.openai.com/v1)
+    pub openai_base_url: Option<String>,
+    /// Model to use for AI search (default: gpt-4o-mini)
+    pub openai_model: Option<String>,
 }
 
 impl Default for Config {
@@ -20,6 +26,9 @@ impl Default for Config {
             github_token: None,
             last_sync: None,
             client_id: None,
+            openai_api_key: None,
+            openai_base_url: None,
+            openai_model: None,
         }
     }
 }

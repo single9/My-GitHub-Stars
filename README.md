@@ -18,6 +18,7 @@ A terminal UI app for browsing, searching, and categorising your GitHub starred 
 
 - **Browse** stars grouped by programming language and GitHub topic tags
 - **Search** across repo name, description, and topics in real time
+- **AI Search** — describe what you need in plain language; the app queries an OpenAI-compatible LLM to find the most relevant repos from your stars
 - **Sync** fetches all starred repos from the GitHub API and stores them locally (SQLite)
 - **Auto-update** runs a background sync on startup so the UI is immediately usable
 - **OAuth Device Flow** — no secrets stored in code; authorisation happens in your browser
@@ -58,13 +59,16 @@ Enter the code there to authorise — the app starts automatically once confirme
 |-----|--------|
 | `b` | Browse repos by category |
 | `/` | Search repos |
-| `s` | Settings (toggle auto-update, re-auth) |
+| `i` | AI Search (natural language) |
+| `s` | Settings (toggle auto-update, set AI key, re-auth) |
 | `u` | Manual sync |
 | `q` | Quit |
 
 Inside **Browse**: `Tab` switches between the category list and repo list; `↑↓` to navigate; `Enter` on a repo opens it in your browser.
 
 Inside **Search**: type to filter; `↑↓` to select; `Enter` to open in browser; `Esc` to go back.
+
+Inside **AI Search**: type a natural-language query (e.g. *"async HTTP client in Rust"*) and press `Enter` to submit. The app sends your starred repos to the configured LLM and returns the most relevant results. `Tab` moves focus to the results list; `↑↓` to select; `Enter` to open in browser; `Esc` returns to the query field.
 
 ## Data storage
 
@@ -76,8 +80,28 @@ Inside **Search**: type to filter; `↑↓` to select; `Enter` to open in browse
 
 | File | Contents |
 |------|----------|
-| `config.toml` | Auth token, client ID, preferences |
+| `config.toml` | Auth token, client ID, AI API key, preferences |
 | `stars.db` | SQLite database of repos and categories |
+
+## AI Search
+
+AI Search sends your entire starred-repo list (name, description, language, topics) to an OpenAI-compatible chat API and asks the model to rank repos by relevance to your natural-language query.
+
+### Setup
+
+1. Open **Settings** (`s` from Home)
+2. Press `k` and enter your OpenAI API key, then press `Enter`
+
+### Custom base URL / local models
+
+Edit `config.toml` directly to use a different endpoint (e.g. Ollama, LM Studio):
+
+```toml
+openai_base_url = "http://localhost:11434/v1"
+openai_model    = "llama3"
+```
+
+The default model is `gpt-4o-mini`.
 
 ## Architecture
 
@@ -85,10 +109,11 @@ Inside **Search**: type to filter; `↑↓` to select; `Enter` to open in browse
 src/
 ├── main.rs          Entry point — load config, open DB, run event loop
 ├── app.rs           App state machine, event handling, background sync
+├── ai/              OpenAI-compatible client for natural-language search
 ├── api/             GitHub REST API client (paginated starred fetch)
 ├── auth/            OAuth Device Flow (request code → poll for token)
 ├── classifier/      Categorise repos by language + topic tags
-├── config/          TOML config load/save
+├── config/          TOML config load/save (includes AI settings)
 ├── storage/         SQLite schema and queries (rusqlite)
 └── tui/
     ├── events.rs    Crossterm event polling
