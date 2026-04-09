@@ -1,0 +1,544 @@
+use ratatui::{
+    Frame,
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+};
+
+use crate::app::{App, Screen, SyncStatus};
+
+fn fmt_stars(n: i64) -> String {
+    if n >= 1_000_000 {
+        format!("{:.1}M", n as f64 / 1_000_000.0)
+    } else if n >= 1_000 {
+        format!("{}k", n / 1_000)
+    } else {
+        n.to_string()
+    }
+}
+
+pub fn draw(frame: &mut Frame, app: &mut App) {
+    match app.screen {
+        Screen::Setup => draw_setup(frame, app),
+        Screen::Login => draw_login(frame, app),
+        Screen::Home => draw_home(frame, app),
+        Screen::Browse => draw_browse(frame, app),
+        Screen::Search => draw_search(frame, app),
+        Screen::Settings => draw_settings(frame, app),
+        Screen::Syncing => draw_syncing(frame, app),
+    }
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+fn title_block(title: &str) -> Block<'_> {
+    Block::default()
+        .title(format!(" {} ", title))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+}
+
+fn highlight_style() -> Style {
+    Style::default()
+        .fg(Color::Black)
+        .bg(Color::Cyan)
+        .add_modifier(Modifier::BOLD)
+}
+
+// ── setup ─────────────────────────────────────────────────────────────────────
+
+fn draw_setup(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    let block = title_block("GitHub Stars Pocket — First-time Setup");
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(6),
+            Constraint::Length(3),
+            Constraint::Min(0),
+        ])
+        .split(inner);
+
+    let instructions = Paragraph::new(vec![
+        Line::from(Span::styled("How to get a GitHub OAuth App Client ID:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from("  1. Go to https://github.com/settings/developers"),
+        Line::from("  2. Click \"New OAuth App\""),
+        Line::from("  3. Fill in any name/URL, then enable \"Device Flow\""),
+        Line::from("  4. Copy the \"Client ID\" and paste it below, then press Enter"),
+    ])
+    .wrap(Wrap { trim: false });
+    frame.render_widget(instructions, chunks[0]);
+
+    let input_display = format!("  {}▌", app.setup_input);
+    let input = Paragraph::new(input_display)
+        .style(Style::default().fg(Color::White))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Client ID ")
+                .border_style(Style::default().fg(Color::Yellow)),
+        );
+    frame.render_widget(input, chunks[1]);
+
+    let hint = Paragraph::new(Span::styled(
+        "  Press Esc or Ctrl+C to quit",
+        Style::default().fg(Color::DarkGray),
+    ));
+    frame.render_widget(hint, chunks[2]);
+}
+
+// ── login ─────────────────────────────────────────────────────────────────────
+
+fn draw_login(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    let block = title_block("GitHub Stars Pocket — Login");
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(5),
+            Constraint::Min(0),
+        ])
+        .split(inner);
+
+    let intro = Paragraph::new("To authenticate, open the following URL and enter the code below:")
+        .style(Style::default().fg(Color::White))
+        .wrap(Wrap { trim: true });
+    frame.render_widget(intro, chunks[0]);
+
+    let code_text = if let Some(code) = &app.device_user_code {
+        vec![
+            Line::from(vec![
+                Span::raw("  URL : "),
+                Span::styled(
+                    app.device_verification_uri
+                        .as_deref()
+                        .unwrap_or("https://github.com/login/device"),
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED),
+                ),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("  Code: "),
+                Span::styled(
+                    code.as_str(),
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]),
+        ]
+    } else {
+        vec![Line::from(Span::styled(
+            "  Requesting device code…",
+            Style::default().fg(Color::DarkGray),
+        ))]
+    };
+
+    let code_widget = Paragraph::new(Text::from(code_text))
+        .block(Block::default().borders(Borders::ALL).title(" Authentication "))
+        .wrap(Wrap { trim: false });
+    frame.render_widget(code_widget, chunks[1]);
+
+    let status = match &app.sync_status {
+        SyncStatus::Error(e) => {
+            Paragraph::new(format!("Error: {}", e)).style(Style::default().fg(Color::Red))
+        }
+        _ => Paragraph::new("Waiting for authorization… (press Ctrl+C to quit)")
+            .style(Style::default().fg(Color::DarkGray)),
+    };
+    frame.render_widget(status, chunks[2]);
+}
+
+// ── home ──────────────────────────────────────────────────────────────────────
+
+fn draw_home(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    let block = title_block("GitHub Stars Pocket");
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([Constraint::Length(7), Constraint::Min(0)])
+        .split(inner);
+
+    // Stats box
+    let stats = vec![
+        Line::from(vec![
+            Span::styled("  ★ Starred repos : ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                app.total_repos.to_string(),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("  ⊕ Categories    : ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                app.total_categories.to_string(),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("  ↺ Last sync     : ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                app.config
+                    .last_sync
+                    .as_deref()
+                    .unwrap_or("Never"),
+                Style::default().fg(Color::White),
+            ),
+            if app.bg_syncing {
+                let spinner = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
+                let s = spinner[app.tick_count % spinner.len()];
+                Span::styled(format!("  {} syncing…", s), Style::default().fg(Color::Yellow))
+            } else {
+                Span::raw("")
+            },
+        ]),
+    ];
+    let stats_widget = Paragraph::new(stats)
+        .block(Block::default().borders(Borders::ALL).title(" Stats "))
+        .wrap(Wrap { trim: false });
+    frame.render_widget(stats_widget, chunks[0]);
+
+    // Navigation help
+    let help = Paragraph::new(vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  [b]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(" Browse by category   "),
+            Span::styled("[/]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(" Search repos"),
+        ]),
+        Line::from(vec![
+            Span::styled("  [s]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(" Settings             "),
+            Span::styled("[u]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(" Sync now"),
+        ]),
+        Line::from(vec![
+            Span::styled("  [q]", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw(" Quit"),
+        ]),
+    ])
+    .block(Block::default().borders(Borders::ALL).title(" Navigation "));
+    frame.render_widget(help, chunks[1]);
+}
+
+// ── browse ────────────────────────────────────────────────────────────────────
+
+fn draw_browse(frame: &mut Frame, app: &mut App) {
+    let area = frame.area();
+    let block = title_block("Browse — [←/→] switch pane  [↑/↓] navigate  [Enter] open URL  [q] back");
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+        .split(inner);
+
+    // Categories list
+    let cat_items: Vec<ListItem> = app
+        .categories
+        .iter()
+        .map(|c| {
+            let icon = if c.category_type == "language" { "◈" } else { "#" };
+            ListItem::new(format!("{} {} ({})", icon, c.name, c.count))
+        })
+        .collect();
+
+    let mut cat_state = ListState::default();
+    cat_state.select(app.selected_category);
+
+    let cat_list = List::new(cat_items)
+        .block(title_block("Categories"))
+        .highlight_style(highlight_style())
+        .highlight_symbol("▶ ");
+    frame.render_stateful_widget(cat_list, chunks[0], &mut cat_state);
+    app.category_list_state = cat_state;
+
+    // Repos list + detail
+    let repo_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(chunks[1]);
+
+    let repo_items: Vec<ListItem> = app
+        .displayed_repos
+        .iter()
+        .map(|r| {
+            ListItem::new(vec![Line::from(vec![
+                Span::styled(
+                    &r.name,
+                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("  ★ {}", fmt_stars(r.stars_count)),
+                    Style::default().fg(Color::Yellow),
+                ),
+            ])])
+        })
+        .collect();
+
+    let mut repo_state = ListState::default();
+    repo_state.select(app.selected_repo);
+
+    let repo_list = List::new(repo_items)
+        .block(title_block("Repositories"))
+        .highlight_style(highlight_style())
+        .highlight_symbol("▶ ");
+    frame.render_stateful_widget(repo_list, repo_chunks[0], &mut repo_state);
+    app.repo_list_state = repo_state;
+
+    // Detail panel
+    let detail = if let Some(idx) = app.selected_repo {
+        if let Some(repo) = app.displayed_repos.get(idx) {
+            let topics = repo.topics();
+
+            let lines = vec![
+                Line::from(vec![
+                    Span::styled("Name    : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(repo.full_name.clone(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                ]),
+                Line::from(vec![
+                    Span::styled("Lang    : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        repo.language.clone().unwrap_or_else(|| "—".to_string()),
+                        Style::default().fg(Color::Cyan),
+                    ),
+                ]),
+                Line::from(vec![
+                    Span::styled("Topics  : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(topics.join(", "), Style::default().fg(Color::Magenta)),
+                ]),
+                Line::from(vec![
+                    Span::styled("URL     : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(repo.url.clone(), Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("Desc    : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        repo.description.clone().unwrap_or_else(|| "No description".to_string()),
+                        Style::default().fg(Color::White),
+                    ),
+                ]),
+            ];
+            Paragraph::new(lines).wrap(Wrap { trim: true })
+        } else {
+            Paragraph::new("Select a repository to see details.")
+        }
+    } else {
+        Paragraph::new("Select a repository to see details.")
+    };
+    let detail_block = title_block("Detail  [Enter] open in browser");
+    frame.render_widget(detail.block(detail_block), repo_chunks[1]);
+}
+
+// ── search ────────────────────────────────────────────────────────────────────
+
+fn draw_search(frame: &mut Frame, app: &mut App) {
+    let area = frame.area();
+    let block = title_block("Search  [↑/↓] navigate  [Enter] open URL  [Esc] back");
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .split(inner);
+
+    // Search input
+    let input = Paragraph::new(format!("  {}_", app.search_query))
+        .style(Style::default().fg(Color::White))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Query ")
+                .border_style(Style::default().fg(Color::Yellow)),
+        );
+    frame.render_widget(input, chunks[0]);
+
+    // Results
+    let result_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(chunks[1]);
+
+    let repo_items: Vec<ListItem> = app
+        .search_results
+        .iter()
+        .map(|r| {
+            ListItem::new(vec![Line::from(vec![
+                Span::styled(&r.name, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("  {} ", r.language.as_deref().unwrap_or("")),
+                    Style::default().fg(Color::Cyan),
+                ),
+                Span::styled(format!("★ {}", fmt_stars(r.stars_count)), Style::default().fg(Color::Yellow)),
+            ])])
+        })
+        .collect();
+
+    let mut repo_state = ListState::default();
+    repo_state.select(app.selected_repo);
+
+    let results_title = format!("Results ({})", app.search_results.len());
+    let result_list = List::new(repo_items)
+        .block(title_block(&results_title))
+        .highlight_style(highlight_style())
+        .highlight_symbol("▶ ");
+    frame.render_stateful_widget(result_list, result_chunks[0], &mut repo_state);
+    app.repo_list_state = repo_state;
+
+    // Detail panel
+    let detail = if let Some(idx) = app.selected_repo {
+        if let Some(repo) = app.search_results.get(idx) {
+            Paragraph::new(vec![
+                Line::from(vec![
+                    Span::styled("Name : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(&repo.full_name, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                ]),
+                Line::from(vec![
+                    Span::styled("URL  : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(&repo.url, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("Desc : ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        repo.description.as_deref().unwrap_or("No description"),
+                        Style::default().fg(Color::White),
+                    ),
+                ]),
+            ])
+            .wrap(Wrap { trim: true })
+        } else {
+            Paragraph::new("")
+        }
+    } else {
+        Paragraph::new("Type to search…")
+    };
+    frame.render_widget(detail.block(title_block("Detail")), result_chunks[1]);
+}
+
+// ── settings ──────────────────────────────────────────────────────────────────
+
+fn draw_settings(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    let block = title_block("Settings  [q/Esc] back");
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let auto = if app.config.auto_update { "✓ ON " } else { "  OFF" };
+    let client_id_display = app
+        .config
+        .client_id()
+        .map(|id| {
+            // Show first 8 chars + asterisks for privacy
+            if id.len() > 8 {
+                format!("{}…", &id[..8])
+            } else {
+                id.to_string()
+            }
+        })
+        .unwrap_or_else(|| "(not set)".to_string());
+
+    let lines = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  [a] Auto-update on startup : ", Style::default().fg(Color::White)),
+            Span::styled(
+                auto,
+                if app.config.auto_update {
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::Red)
+                },
+            ),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("      OAuth Client ID        : ", Style::default().fg(Color::White)),
+            Span::styled(&client_id_display, Style::default().fg(Color::Cyan)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  [l] Log out", Style::default().fg(Color::White)),
+            Span::styled(" (clears stored token)", Style::default().fg(Color::DarkGray)),
+        ]),
+    ];
+
+    frame.render_widget(Paragraph::new(lines), inner);
+}
+
+// ── syncing ───────────────────────────────────────────────────────────────────
+
+fn draw_syncing(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    let is_done = matches!(
+        &app.sync_status,
+        SyncStatus::Done(_) | SyncStatus::Error(_)
+    );
+    let title = if is_done {
+        "Sync — press any key to continue"
+    } else {
+        "Syncing…"
+    };
+    let block = title_block(title);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let spin_char = spinner[app.tick_count % spinner.len()];
+
+    // Build log lines
+    let mut items: Vec<ListItem> = app
+        .sync_log
+        .iter()
+        .map(|e| {
+            ListItem::new(Line::from(Span::styled(
+                e.message.clone(),
+                Style::default().fg(e.color),
+            )))
+        })
+        .collect();
+
+    // Append live spinner line if still running
+    if !is_done {
+        let spinner_line = match &app.sync_status {
+            SyncStatus::FetchingStars(_) => format!("  {} Fetching…", spin_char),
+            SyncStatus::Classifying => format!("  {} Classifying…", spin_char),
+            _ => format!("  {} Working…", spin_char),
+        };
+        items.push(ListItem::new(Line::from(Span::styled(
+            spinner_line,
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ))));
+    }
+
+    // Always scroll to bottom: offset so last item is visible
+    let height = inner.height as usize;
+    let total = items.len();
+    let offset = total.saturating_sub(height);
+    let mut state = ListState::default().with_offset(offset);
+
+    let list = List::new(items);
+    frame.render_stateful_widget(list, inner, &mut state);
+}
