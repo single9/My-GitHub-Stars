@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(default = "default_auto_update")]
     pub auto_update: bool,
     pub github_token: Option<String>,
     pub last_sync: Option<String>,
@@ -12,15 +13,21 @@ pub struct Config {
     /// → "New OAuth App" → enable "Device Flow"
     pub client_id: Option<String>,
     /// OpenAI-compatible API key for AI search
+    #[serde(default)]
     pub openai_api_key: Option<String>,
     /// OpenAI-compatible base URL (default: https://api.openai.com/v1)
+    #[serde(default)]
     pub openai_base_url: Option<String>,
     /// Model to use for AI search (default: gpt-4o-mini)
+    #[serde(default)]
     pub openai_model: Option<String>,
     /// When true, use GitHub Copilot for AI search instead of a plain API key.
     /// The existing GitHub token is exchanged for a Copilot token automatically.
+    #[serde(default)]
     pub use_copilot: bool,
 }
+
+fn default_auto_update() -> bool { true }
 
 impl Default for Config {
     fn default() -> Self {
