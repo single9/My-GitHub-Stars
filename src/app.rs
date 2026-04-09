@@ -455,6 +455,10 @@ impl App {
                     .unwrap_or_default();
                 self.settings_editing_key = true;
             }
+            KeyCode::Char('c') => {
+                self.config.use_copilot = !self.config.use_copilot;
+                let _ = self.config.save();
+            }
             KeyCode::Char('l') => {
                 self.config.github_token = None;
                 let _ = self.config.save();
@@ -776,28 +780,41 @@ pub async fn run_app(
 
                     // ── AI Search: spawn task when loading flag is set ──
                     if app.ai_loading && app.ai_search_done_rx.is_none() {
-                        if let Some(api_key) = app.config.openai_api_key.clone() {
+                        let model = app.config.openai_model.clone();
+                        let use_copilot = app.config.use_copilot;
+
+                        let client_opt: Option<AiClient> = if use_copilot {
+                            app.config.github_token.as_deref().map(|t| {
+                                AiClient::new_copilot(t, model.as_deref())
+                            })
+                        } else {
+                            app.config.openai_api_key.as_deref().map(|k| {
+                                AiClient::new(
+                                    k,
+                                    app.config.openai_base_url.as_deref(),
+                                    model.as_deref(),
+                                )
+                            })
+                        };
+
+                        if let Some(client) = client_opt {
                             let query = app.ai_query.clone();
-                            let base_url = app.config.openai_base_url.clone();
-                            let model = app.config.openai_model.clone();
                             let all_repos = db.get_all_repos().unwrap_or_default();
                             let (done_tx, done_rx) = oneshot::channel::<Result<Vec<String>, String>>();
                             app.ai_search_done_rx = Some(done_rx);
                             tokio::spawn(async move {
-                                let client = AiClient::new(
-                                    &api_key,
-                                    base_url.as_deref(),
-                                    model.as_deref(),
-                                );
                                 match client.search(&query, &all_repos).await {
                                     Ok(names) => { let _ = done_tx.send(Ok(names)); }
                                     Err(e)    => { let _ = done_tx.send(Err(e.to_string())); }
                                 }
                             });
                         } else {
-                            // No API key configured
                             app.ai_loading = false;
-                            app.ai_error = Some("No OpenAI API key configured. Set one in Settings [s] → [k].".to_string());
+                            app.ai_error = Some(if use_copilot {
+                                "GitHub token not found. Please log in first.".to_string()
+                            } else {
+                                "No OpenAI API key configured. Set one in Settings [s] → [k].".to_string()
+                            });
                         }
                     }
 

@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{App, Screen, SyncStatus};
-use crate::ai::{DEFAULT_BASE_URL, DEFAULT_MODEL};
+use crate::ai::{DEFAULT_BASE_URL, DEFAULT_MODEL, COPILOT_BASE_URL, COPILOT_DEFAULT_MODEL};
 
 fn fmt_stars(n: i64) -> String {
     if n >= 1_000_000 {
@@ -470,16 +470,20 @@ fn draw_settings(frame: &mut Frame, app: &App) {
         })
         .unwrap_or_else(|| "(not set)".to_string());
 
-    let base_url = app
-        .config
-        .openai_base_url
-        .as_deref()
-        .unwrap_or(DEFAULT_BASE_URL);
-    let model = app
-        .config
-        .openai_model
-        .as_deref()
-        .unwrap_or(DEFAULT_MODEL);
+    let copilot_on = app.config.use_copilot;
+    let copilot_label = if copilot_on { "✓ ON " } else { "  OFF" };
+
+    let (base_url, model) = if copilot_on {
+        (
+            COPILOT_BASE_URL,
+            app.config.openai_model.as_deref().unwrap_or(COPILOT_DEFAULT_MODEL),
+        )
+    } else {
+        (
+            app.config.openai_base_url.as_deref().unwrap_or(DEFAULT_BASE_URL),
+            app.config.openai_model.as_deref().unwrap_or(DEFAULT_MODEL),
+        )
+    };
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -508,10 +512,30 @@ fn draw_settings(frame: &mut Frame, app: &App) {
         Line::from(Span::styled("  ── AI Search ──────────────────────────────────────", Style::default().fg(Color::DarkGray))),
         Line::from(""),
         Line::from(vec![
-            Span::styled("  [k] OpenAI API key         : ", Style::default().fg(Color::White)),
+            Span::styled("  [c] GitHub Copilot         : ", Style::default().fg(Color::White)),
             Span::styled(
-                &ai_key_display,
-                if app.config.openai_api_key.is_some() {
+                copilot_label,
+                if copilot_on {
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::DarkGray)
+                },
+            ),
+            if copilot_on {
+                Span::styled("  (uses your GitHub token)", Style::default().fg(Color::DarkGray))
+            } else {
+                Span::raw("")
+            },
+        ]),
+        Line::from(vec![
+            Span::styled("  [k] OpenAI API key         : ", Style::default().fg(
+                if copilot_on { Color::DarkGray } else { Color::White }
+            )),
+            Span::styled(
+                if copilot_on { "—" } else { &ai_key_display },
+                if copilot_on {
+                    Style::default().fg(Color::DarkGray)
+                } else if app.config.openai_api_key.is_some() {
                     Style::default().fg(Color::Green)
                 } else {
                     Style::default().fg(Color::Red)

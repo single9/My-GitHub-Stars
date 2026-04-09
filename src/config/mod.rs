@@ -17,6 +17,9 @@ pub struct Config {
     pub openai_base_url: Option<String>,
     /// Model to use for AI search (default: gpt-4o-mini)
     pub openai_model: Option<String>,
+    /// When true, use GitHub Copilot for AI search instead of a plain API key.
+    /// The existing GitHub token is exchanged for a Copilot token automatically.
+    pub use_copilot: bool,
 }
 
 impl Default for Config {
@@ -29,6 +32,7 @@ impl Default for Config {
             openai_api_key: None,
             openai_base_url: None,
             openai_model: None,
+            use_copilot: false,
         }
     }
 }

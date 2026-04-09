@@ -6,13 +6,26 @@ use crate::storage::RepoRow;
 
 pub const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
 pub const DEFAULT_MODEL: &str = "gpt-4o-mini";
+pub const COPILOT_BASE_URL: &str = "https://api.githubcopilot.com";
+pub const COPILOT_DEFAULT_MODEL: &str = "gpt-4o-mini";
+
+/// How the client authenticates with the LLM backend.
+enum AiAuth {
+    /// A plain API key sent as `Authorization: Bearer <key>`.
+    ApiKey(String),
+    /// A GitHub OAuth token that is exchanged for a short-lived Copilot token
+    /// before every request.
+    GitHubCopilot(String),
+}
 
 pub struct AiClient {
-    api_key: String,
+    auth: AiAuth,
     base_url: String,
     model: String,
     http: Client,
 }
+
+// ── Wire types ────────────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
 struct ChatRequest {
@@ -37,13 +50,66 @@ struct Choice {
     message: Message,
 }
 
+#[derive(Deserialize)]
+struct CopilotTokenResponse {
+    token: String,
+}
+
+// ── Implementation ────────────────────────────────────────────────────────────
+
 impl AiClient {
+    /// Build a client that authenticates with a plain OpenAI-compatible API key.
     pub fn new(api_key: &str, base_url: Option<&str>, model: Option<&str>) -> Self {
         Self {
-            api_key: api_key.to_string(),
-            base_url: base_url.unwrap_or(DEFAULT_BASE_URL).trim_end_matches('/').to_string(),
+            auth: AiAuth::ApiKey(api_key.to_string()),
+            base_url: base_url
+                .unwrap_or(DEFAULT_BASE_URL)
+                .trim_end_matches('/')
+                .to_string(),
             model: model.unwrap_or(DEFAULT_MODEL).to_string(),
             http: Client::new(),
+        }
+    }
+
+    /// Build a client that uses a GitHub token to call the GitHub Copilot API.
+    /// The GitHub token is exchanged for a short-lived Copilot token on each request.
+    pub fn new_copilot(github_token: &str, model: Option<&str>) -> Self {
+        Self {
+            auth: AiAuth::GitHubCopilot(github_token.to_string()),
+            base_url: COPILOT_BASE_URL.to_string(),
+            model: model.unwrap_or(COPILOT_DEFAULT_MODEL).to_string(),
+            http: Client::new(),
+        }
+    }
+
+    /// Resolve the bearer token to use for the chat completions request.
+    /// For Copilot mode this exchanges the GitHub token for a short-lived token.
+    async fn resolve_bearer_token(&self) -> Result<String> {
+        match &self.auth {
+            AiAuth::ApiKey(key) => Ok(key.clone()),
+            AiAuth::GitHubCopilot(github_token) => {
+                let resp = self
+                    .http
+                    .get("https://api.github.com/copilot_internal/v2/token")
+                    .header("Authorization", format!("token {}", github_token))
+                    .header("User-Agent", "github-stars-pocket")
+                    .send()
+                    .await?;
+
+                if !resp.status().is_success() {
+                    let status = resp.status();
+                    let text = resp.text().await.unwrap_or_default();
+                    bail!(
+                        "Failed to get Copilot token ({}): {}. \
+                         Make sure your GitHub account has an active Copilot subscription.",
+                        status,
+                        text
+                    );
+                }
+
+                let token_resp: CopilotTokenResponse = resp.json().await?;
+                Ok(token_resp.token)
+            }
         }
     }
 
@@ -97,11 +163,14 @@ impl AiClient {
             temperature: 0.2,
         };
 
+        let bearer = self.resolve_bearer_token().await?;
+
         let url = format!("{}/chat/completions", self.base_url);
         let resp = self
             .http
             .post(&url)
-            .bearer_auth(&self.api_key)
+            .bearer_auth(&bearer)
+            .header("User-Agent", "github-stars-pocket")
             .json(&req)
             .send()
             .await?;
