@@ -65,5 +65,15 @@ fn App() -> Element {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 pub fn run() {
-    dioxus::launch(App);
+    use dioxus::desktop::{Config, WindowBuilder};
+
+    dioxus::LaunchBuilder::desktop()
+        .with_cfg(
+            Config::new().with_window(
+                WindowBuilder::new()
+                    .with_title("My GitHub Stars")
+                    .with_always_on_top(false),
+            ),
+        )
+        .launch(App);
 }
