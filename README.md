@@ -26,6 +26,27 @@ A terminal UI (and desktop GUI) app for browsing, searching, and categorising yo
 
 ## Installation
 
+Requires Rust 1.88+ (edition 2024).
+
+### System dependencies
+
+**TUI build** — no system libraries required (SQLite is bundled).
+
+**GUI build** (`--features gui`) requires the following system libraries on Linux:
+
+```bash
+# Debian / Ubuntu
+sudo apt-get install -y \
+  libsoup-3.0-dev \
+  libwebkit2gtk-4.1-dev \
+  libxdo-dev
+```
+
+> On Fedora/RHEL: `sudo dnf install libsoup3-devel webkit2gtk4.1-devel libxdo-devel`
+> On Arch: `sudo pacman -S libsoup3 webkit2gtk-4.1 xdotool`
+
+### Build
+
 ```bash
 git clone https://github.com/single9/my-gh-stars
 cd my-gh-stars
@@ -36,8 +57,6 @@ cargo install --path .
 # Desktop GUI
 cargo install --path . --features gui --no-default-features
 ```
-
-Requires Rust 1.85+ (edition 2024).
 
 ## Running
 
