@@ -1,6 +1,6 @@
 # My GitHub Stars (`ghstars`)
 
-A terminal UI app for browsing, searching, and categorising your GitHub starred repositories.
+A terminal UI (and desktop GUI) app for browsing, searching, and categorising your GitHub starred repositories.
 
 ```
 ┌ GitHub Stars Pocket ──────────────────────────────────────────┐
@@ -22,16 +22,32 @@ A terminal UI app for browsing, searching, and categorising your GitHub starred 
 - **Sync** fetches all starred repos from the GitHub API and stores them locally (SQLite)
 - **Auto-update** runs a background sync on startup so the UI is immediately usable
 - **OAuth Device Flow** — no secrets stored in code; authorisation happens in your browser
+- **Two UI modes** — classic terminal (TUI) or native desktop window (GUI, powered by Dioxus)
 
 ## Installation
 
 ```bash
 git clone https://github.com/single9/my-gh-stars
 cd my-gh-stars
+
+# TUI (default)
 cargo install --path .
+
+# Desktop GUI
+cargo install --path . --features gui --no-default-features
 ```
 
 Requires Rust 1.85+ (edition 2024).
+
+## Running
+
+```bash
+# Terminal UI (default)
+ghstars
+
+# Desktop GUI
+cargo run --features gui --no-default-features
+```
 
 ## Setup
 
@@ -66,9 +82,13 @@ Enter the code there to authorise — the app starts automatically once confirme
 | `u` | Manual sync                  |
 | `q` | Quit                         |
 
+> In GUI mode, all actions are available via clickable buttons on the Home screen.
+
 ### Browse
 
 `Tab` switches between the category list and repo list. `↑↓` to navigate; `Enter` on a repo opens it in your browser.
+
+> In GUI mode, click a category to load its repos; double-click a repo to open it in your browser.
 
 ### Search
 
@@ -170,18 +190,24 @@ openai_model    = "llama3"
 
 ```
 src/
-├── main.rs          Entry point — load config, open DB, run event loop
-├── app.rs           App state machine, event handling, background sync
+├── main.rs          Entry point — selects TUI or GUI based on feature flag
+├── app.rs           TUI app state machine, event handling, background sync
 ├── ai/              LLM client (OpenAI-compatible) + known model list
 ├── api/             GitHub REST API client (paginated starred fetch)
 ├── auth/            OAuth Device Flow (request code → poll for token)
 ├── classifier/      Categorise repos by language + topic tags
 ├── config/          TOML config load/save (includes AI settings)
 ├── storage/         SQLite schema and queries (rusqlite)
-└── tui/
-    ├── events.rs    Crossterm event polling
-    ├── ui.rs        All screen renderers (ratatui)
-    └── mod.rs       Terminal init/restore
+├── tui/
+│   ├── events.rs    Crossterm event polling
+│   ├── ui.rs        All screen renderers (ratatui)
+│   └── mod.rs       Terminal init/restore
+└── gui/             Desktop GUI (Dioxus 0.7, compiled with --features gui)
+    ├── mod.rs       Root App component, window config, run() entry point
+    ├── state.rs     GuiAppState, GuiScreen enum, SyncStatus, LogEntry
+    ├── db.rs        Async DB helpers (spawn_blocking, fresh connections)
+    └── screens/     One file per screen: setup, login, home, browse,
+                     search, ai_search, settings, syncing
 ```
 
 ## License
