@@ -54,7 +54,7 @@ impl Config {
     pub fn config_dir() -> Result<PathBuf> {
         let dir = dirs::config_dir()
             .context("Cannot find config directory")?
-            .join("github-stars-pocket");
+            .join("my-gh-stars");
         std::fs::create_dir_all(&dir)?;
         Ok(dir)
     }

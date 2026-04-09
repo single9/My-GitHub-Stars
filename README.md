@@ -26,8 +26,8 @@ A terminal UI app for browsing, searching, and categorising your GitHub starred 
 ## Installation
 
 ```bash
-git clone https://github.com/yourname/github-stars-pocket
-cd github-stars-pocket
+git clone https://github.com/single9/my-gh-stars
+cd my-gh-stars
 cargo install --path .
 ```
 
@@ -49,22 +49,22 @@ Requires Rust 1.85+ (edition 2024).
 gsp
 ```
 
-On first run you will be prompted to paste your **Client ID**.  
-The app will then display a short code and open `github.com/login/device` in your browser.  
+On first run you will be prompted to paste your **Client ID**.
+The app will then display a short code and open `github.com/login/device` in your browser.
 Enter the code there to authorise — the app starts automatically once confirmed.
 
 ## Usage
 
 ### Home screen
 
-| Key | Action |
-|-----|--------|
-| `b` | Browse repos by category |
-| `/` | Search repos (real-time) |
+| Key | Action                       |
+| --- | ---------------------------- |
+| `b` | Browse repos by category     |
+| `/` | Search repos (real-time)     |
 | `i` | AI Search (natural language) |
-| `s` | Settings |
-| `u` | Manual sync |
-| `q` | Quit |
+| `s` | Settings                     |
+| `u` | Manual sync                  |
+| `q` | Quit                         |
 
 ### Browse
 
@@ -76,41 +76,41 @@ Type to filter; `↑↓` to select; `Enter` to open in browser; `Esc` to go back
 
 ### AI Search
 
-Type a natural-language query — e.g. *"async HTTP client in Rust"* or *"vector database for Python"* — and press `Enter`.
+Type a natural-language query — e.g. _"async HTTP client in Rust"_ or _"vector database for Python"_ — and press `Enter`.
 
 The app first narrows candidates by keyword matching, then sends them to the configured LLM to rank by relevance.
 
-| Key | Action |
-|-----|--------|
-| `Enter` | Submit query |
-| `Tab` | Move focus to results list |
-| `↑↓` | Navigate results |
-| `Enter` | Open selected repo in browser |
-| `Esc` | Return to query field / back to Home |
+| Key     | Action                               |
+| ------- | ------------------------------------ |
+| `Enter` | Submit query                         |
+| `Tab`   | Move focus to results list           |
+| `↑↓`    | Navigate results                     |
+| `Enter` | Open selected repo in browser        |
+| `Esc`   | Return to query field / back to Home |
 
 ### Settings (`s`)
 
-| Key | Action |
-|-----|--------|
-| `a` | Toggle auto-update on startup |
+| Key | Action                                         |
+| --- | ---------------------------------------------- |
+| `a` | Toggle auto-update on startup                  |
 | `c` | Toggle GitHub Copilot mode (GitHub Models API) |
-| `p` | Set GitHub PAT for Copilot mode |
-| `k` | Set OpenAI API key |
-| `m` | Pick or change the AI model |
-| `l` | Log out (clear stored token) |
+| `p` | Set GitHub PAT for Copilot mode                |
+| `k` | Set OpenAI API key                             |
+| `m` | Pick or change the AI model                    |
+| `l` | Log out (clear stored token)                   |
 
 ## Data storage
 
-| OS | Path |
-|----|------|
-| macOS | `~/Library/Application Support/github-stars-pocket/` |
-| Linux | `~/.config/github-stars-pocket/` |
-| Windows | `%APPDATA%\github-stars-pocket\` |
+| OS      | Path                                         |
+| ------- | -------------------------------------------- |
+| macOS   | `~/Library/Application Support/my-gh-stars/` |
+| Linux   | `~/.config/my-gh-stars/`                     |
+| Windows | `%APPDATA%\my-gh-stars\`                     |
 
-| File | Contents |
-|------|----------|
+| File          | Contents                                       |
+| ------------- | ---------------------------------------------- |
 | `config.toml` | Auth token, client ID, AI API key, preferences |
-| `stars.db` | SQLite database of repos and categories |
+| `stars.db`    | SQLite database of repos and categories        |
 
 ## AI Search
 

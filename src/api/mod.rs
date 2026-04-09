@@ -55,7 +55,7 @@ impl ApiClient {
     pub fn new(token: impl Into<String>) -> Self {
         let token = token.into();
         let http = reqwest::Client::builder()
-            .user_agent("github-stars-pocket/0.1.0")
+            .user_agent("my-gh-stars/0.1.0")
             .default_headers({
                 let mut headers = reqwest::header::HeaderMap::new();
                 headers.insert(

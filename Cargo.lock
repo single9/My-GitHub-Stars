@@ -402,26 +402,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "github-stars-pocket"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "crossterm",
- "dirs",
- "open",
- "ratatui",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "toml",
- "unicode-width 0.2.0",
-]
-
-[[package]]
 name = "h2"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -929,6 +909,26 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "my-gh-stars"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "crossterm",
+ "dirs",
+ "open",
+ "ratatui",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+ "unicode-width 0.2.0",
 ]
 
 [[package]]

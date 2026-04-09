@@ -52,7 +52,7 @@ fn highlight_style() -> Style {
 
 fn draw_setup(frame: &mut Frame, app: &App) {
     let area = frame.area();
-    let block = title_block("GitHub Stars Pocket — First-time Setup");
+    let block = title_block("My GitHub Stars — First-time Setup");
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -99,7 +99,7 @@ fn draw_setup(frame: &mut Frame, app: &App) {
 
 fn draw_login(frame: &mut Frame, app: &App) {
     let area = frame.area();
-    let block = title_block("GitHub Stars Pocket — Login");
+    let block = title_block("My GitHub Stars — Login");
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -167,7 +167,7 @@ fn draw_login(frame: &mut Frame, app: &App) {
 
 fn draw_home(frame: &mut Frame, app: &App) {
     let area = frame.area();
-    let block = title_block("GitHub Stars Pocket");
+    let block = title_block("My GitHub Stars");
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

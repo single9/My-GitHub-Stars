@@ -1,5 +1,5 @@
 [package]
-name = "github-stars-pocket"
+name = "my-gh-stars"
 version = "0.1.0"
 edition = "2024"
 

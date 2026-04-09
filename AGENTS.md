@@ -16,9 +16,9 @@ Config & DB location (resolved by `dirs::config_dir()`):
 
 | OS      | Path                                                 |
 | ------- | ---------------------------------------------------- |
-| macOS   | `~/Library/Application Support/github-stars-pocket/` |
-| Linux   | `~/.config/github-stars-pocket/`                     |
-| Windows | `%APPDATA%\github-stars-pocket\`                     |
+| macOS   | `~/Library/Application Support/my-gh-stars/` |
+| Linux   | `~/.config/my-gh-stars/`                     |
+| Windows | `%APPDATA%\my-gh-stars\`                     |
 
 ---
 

@@ -186,7 +186,7 @@ impl AiClient {
             .http
             .post(&url)
             .bearer_auth(self.bearer_token())
-            .header("User-Agent", "github-stars-pocket")
+            .header("User-Agent", "my-gh-stars")
             .json(&req)
             .send()
             .await?;
