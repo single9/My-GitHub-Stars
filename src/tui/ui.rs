@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
-use crate::app::{App, Screen, SyncStatus};
+use crate::app::{App, BrowsePane, Screen, SyncStatus};
 use crate::ai::{DEFAULT_BASE_URL, DEFAULT_MODEL, COPILOT_BASE_URL, COPILOT_DEFAULT_MODEL, KNOWN_MODELS};
 
 fn fmt_stars(n: i64) -> String {
@@ -246,7 +246,15 @@ fn draw_home(frame: &mut Frame, app: &App) {
 
 fn draw_browse(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
-    let block = title_block("Browse — [←/→] switch pane  [↑/↓] navigate  [Enter] open URL  [q] back");
+    let pane_label = match app.browse_pane {
+        BrowsePane::Categories => "◀ Categories │ Repositories",
+        BrowsePane::Repos => "Categories │ Repositories ▶",
+    };
+    let title = format!(
+        "Browse  {}   [←/→] switch pane  [↑/↓] navigate  [Enter] open URL  [q] back",
+        pane_label
+    );
+    let block = title_block(&title);
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -254,6 +262,8 @@ fn draw_browse(frame: &mut Frame, app: &mut App) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(inner);
+
+    let cat_active = app.browse_pane == BrowsePane::Categories;
 
     // Categories list
     let cat_items: Vec<ListItem> = app
@@ -268,10 +278,28 @@ fn draw_browse(frame: &mut Frame, app: &mut App) {
     let mut cat_state = ListState::default();
     cat_state.select(app.selected_category);
 
+    let cat_block = if cat_active {
+        Block::default()
+            .title(" Categories [focused] ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+    } else {
+        Block::default()
+            .title(" Categories ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::DarkGray))
+    };
+    let cat_highlight = if cat_active {
+        highlight_style()
+    } else {
+        Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)
+    };
+    let cat_symbol = if cat_active { "▶ " } else { "  " };
+
     let cat_list = List::new(cat_items)
-        .block(title_block("Categories"))
-        .highlight_style(highlight_style())
-        .highlight_symbol("▶ ");
+        .block(cat_block)
+        .highlight_style(cat_highlight)
+        .highlight_symbol(cat_symbol);
     frame.render_stateful_widget(cat_list, chunks[0], &mut cat_state);
     app.category_list_state = cat_state;
 
@@ -280,6 +308,8 @@ fn draw_browse(frame: &mut Frame, app: &mut App) {
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
         .split(chunks[1]);
+
+    let repo_active = app.browse_pane == BrowsePane::Repos;
 
     let repo_items: Vec<ListItem> = app
         .displayed_repos
@@ -301,10 +331,28 @@ fn draw_browse(frame: &mut Frame, app: &mut App) {
     let mut repo_state = ListState::default();
     repo_state.select(app.selected_repo);
 
+    let repo_block = if repo_active {
+        Block::default()
+            .title(" Repositories [focused] ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+    } else {
+        Block::default()
+            .title(" Repositories ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::DarkGray))
+    };
+    let repo_highlight = if repo_active {
+        highlight_style()
+    } else {
+        Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)
+    };
+    let repo_symbol = if repo_active { "▶ " } else { "  " };
+
     let repo_list = List::new(repo_items)
-        .block(title_block("Repositories"))
-        .highlight_style(highlight_style())
-        .highlight_symbol("▶ ");
+        .block(repo_block)
+        .highlight_style(repo_highlight)
+        .highlight_symbol(repo_symbol);
     frame.render_stateful_widget(repo_list, repo_chunks[0], &mut repo_state);
     app.repo_list_state = repo_state;
 
