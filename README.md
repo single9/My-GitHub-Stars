@@ -89,12 +89,14 @@ AI Search sends your entire starred-repo list (name, description, language, topi
 
 ### Setup
 
-**Option A — GitHub Copilot (recommended if you have a subscription)**
+**Option A — GitHub Copilot / GitHub Models (recommended)**
 
-1. Open **Settings** (`s` from Home)
-2. Press `c` to toggle **GitHub Copilot ON**
+Uses the **GitHub Models API** (`models.inference.ai.azure.com`) — OpenAI-compatible, authenticated with a GitHub Personal Access Token (PAT). Copilot subscribers get higher rate limits; it's also available on GitHub's free tier.
 
-That's it — the app reuses the GitHub token you already authenticated with. No extra API key needed.
+1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Generate new token (classic)** — no scopes needed
+2. Open **Settings** (`s` from Home)
+3. Press `c` to toggle **GitHub Copilot ON**
+4. Press `p` and paste the PAT, then press `Enter`
 
 **Option B — OpenAI API key**
 

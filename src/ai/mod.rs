@@ -6,16 +6,15 @@ use crate::storage::RepoRow;
 
 pub const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
 pub const DEFAULT_MODEL: &str = "gpt-4o-mini";
-pub const COPILOT_BASE_URL: &str = "https://api.githubcopilot.com";
+/// GitHub Models API — OpenAI-compatible, authenticated with a GitHub PAT.
+/// Copilot subscribers get higher rate limits; also available on the free tier.
+pub const COPILOT_BASE_URL: &str = "https://models.inference.ai.azure.com";
 pub const COPILOT_DEFAULT_MODEL: &str = "gpt-4o-mini";
 
-/// How the client authenticates with the LLM backend.
 enum AiAuth {
-    /// A plain API key sent as `Authorization: Bearer <key>`.
     ApiKey(String),
-    /// A GitHub OAuth token that is exchanged for a short-lived Copilot token
-    /// before every request.
-    GitHubCopilot(String),
+    /// GitHub PAT used directly as a bearer token (no exchange needed).
+    GitHubPat(String),
 }
 
 pub struct AiClient {
@@ -50,15 +49,10 @@ struct Choice {
     message: Message,
 }
 
-#[derive(Deserialize)]
-struct CopilotTokenResponse {
-    token: String,
-}
-
 // ── Implementation ────────────────────────────────────────────────────────────
 
 impl AiClient {
-    /// Build a client that authenticates with a plain OpenAI-compatible API key.
+    /// OpenAI-compatible client authenticated with a plain API key.
     pub fn new(api_key: &str, base_url: Option<&str>, model: Option<&str>) -> Self {
         Self {
             auth: AiAuth::ApiKey(api_key.to_string()),
@@ -71,49 +65,25 @@ impl AiClient {
         }
     }
 
-    /// Build a client that uses a GitHub token to call the GitHub Copilot API.
-    /// The GitHub token is exchanged for a short-lived Copilot token on each request.
-    pub fn new_copilot(github_token: &str, model: Option<&str>) -> Self {
+    /// GitHub Models client — uses a GitHub PAT directly as the bearer token.
+    /// Endpoint: https://models.inference.ai.azure.com (OpenAI-compatible).
+    pub fn new_copilot(github_pat: &str, model: Option<&str>) -> Self {
         Self {
-            auth: AiAuth::GitHubCopilot(github_token.to_string()),
+            auth: AiAuth::GitHubPat(github_pat.to_string()),
             base_url: COPILOT_BASE_URL.to_string(),
             model: model.unwrap_or(COPILOT_DEFAULT_MODEL).to_string(),
             http: Client::new(),
         }
     }
 
-    /// Resolve the bearer token to use for the chat completions request.
-    /// For Copilot mode this exchanges the GitHub token for a short-lived token.
-    async fn resolve_bearer_token(&self) -> Result<String> {
+    fn bearer_token(&self) -> &str {
         match &self.auth {
-            AiAuth::ApiKey(key) => Ok(key.clone()),
-            AiAuth::GitHubCopilot(github_token) => {
-                let resp = self
-                    .http
-                    .get("https://api.github.com/copilot_internal/v2/token")
-                    .header("Authorization", format!("token {}", github_token))
-                    .header("User-Agent", "github-stars-pocket")
-                    .send()
-                    .await?;
-
-                if !resp.status().is_success() {
-                    let status = resp.status();
-                    let text = resp.text().await.unwrap_or_default();
-                    bail!(
-                        "Failed to get Copilot token ({}): {}. \
-                         Make sure your GitHub account has an active Copilot subscription.",
-                        status,
-                        text
-                    );
-                }
-
-                let token_resp: CopilotTokenResponse = resp.json().await?;
-                Ok(token_resp.token)
-            }
+            AiAuth::ApiKey(k) => k,
+            AiAuth::GitHubPat(t) => t,
         }
     }
 
-    /// Send a natural-language query along with the full repo list to the LLM.
+    /// Send a natural-language query with the full repo list to the LLM.
     /// Returns a list of `full_name` strings for the most relevant repos.
     pub async fn search(&self, query: &str, repos: &[RepoRow]) -> Result<Vec<String>> {
         let repo_list: String = repos
@@ -163,13 +133,11 @@ impl AiClient {
             temperature: 0.2,
         };
 
-        let bearer = self.resolve_bearer_token().await?;
-
         let url = format!("{}/chat/completions", self.base_url);
         let resp = self
             .http
             .post(&url)
-            .bearer_auth(&bearer)
+            .bearer_auth(self.bearer_token())
             .header("User-Agent", "github-stars-pocket")
             .json(&req)
             .send()
@@ -188,7 +156,6 @@ impl AiClient {
             .map(|c| c.message.content.as_str())
             .unwrap_or("[]");
 
-        // Strip potential markdown code fences the model might add
         let json_str = content
             .trim()
             .trim_start_matches("```json")

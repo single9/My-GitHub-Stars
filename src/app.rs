@@ -807,7 +807,7 @@ pub async fn run_app(
                                     app.ai_loading = false;
                                     app.ai_error = Some(
                                         "Copilot token not set. In Settings [s], press [p] and \
-                                         paste the output of: gh auth token"
+                                         paste a GitHub PAT from github.com/settings/tokens"
                                             .to_string(),
                                     );
                                     None

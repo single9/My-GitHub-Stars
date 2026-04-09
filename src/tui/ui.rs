@@ -547,15 +547,15 @@ fn draw_settings(frame: &mut Frame, app: &App) {
         ]),
         Line::from(vec![
             Span::styled(
-                "      Tip: run ",
+                "      Tip: create a PAT at ",
                 Style::default().fg(Color::DarkGray),
             ),
             Span::styled(
-                "gh auth token",
+                "github.com/settings/tokens",
                 Style::default().fg(Color::Cyan),
             ),
             Span::styled(
-                " and paste the result above",
+                " (no scope needed)",
                 Style::default().fg(Color::DarkGray),
             ),
         ]),
