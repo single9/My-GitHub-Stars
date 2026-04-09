@@ -172,8 +172,8 @@ pub fn BrowseScreen() -> Element {
                                         Chip { label: format!("◈ {lang}"), color: "#79c0ff" }
                                     }
                                     Chip { label: format!("★ {}", fmt_stars(repo.stars_count)), color: "#e3b341" }
-                                    for (i, topic) in repo.topics().into_iter().enumerate() {
-                                        Chip { key: "{i}", label: format!("# {topic}"), color: "#d2a8ff" }
+                                    for topic in repo.topics().into_iter() {
+                                        Chip { label: format!("# {topic}"), color: "#d2a8ff" }
                                     }
                                 }
                             }

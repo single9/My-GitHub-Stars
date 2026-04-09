@@ -129,8 +129,8 @@ pub fn SearchScreen() -> Element {
                                 span { style: "background:#21262d;border:1px solid #30363d;border-radius:4px;color:#e3b341;font-size:11px;padding:2px 8px;",
                                     "★ {fmt_stars(repo.stars_count)}"
                                 }
-                                for (i, topic) in repo.topics().into_iter().enumerate() {
-                                    span { key: "{i}", style: "background:#21262d;border:1px solid #30363d;border-radius:4px;color:#d2a8ff;font-size:11px;padding:2px 8px;",
+                                for topic in repo.topics().into_iter() {
+                                    span { style: "background:#21262d;border:1px solid #30363d;border-radius:4px;color:#d2a8ff;font-size:11px;padding:2px 8px;",
                                         "# {topic}"
                                     }
                                 }
