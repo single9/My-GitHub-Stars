@@ -7,10 +7,18 @@ edition = "2024"
 name = "ghstars"
 path = "src/main.rs"
 
+[features]
+default = ["tui"]
+tui = []
+gui = ["dep:dioxus"]
+
 [dependencies]
-# TUI
+# TUI (always compiled; only used when the tui feature is active)
 ratatui = "0.29"
 crossterm = "0.28"
+
+# GUI
+dioxus = { version = "0.7", features = ["desktop"], optional = true }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

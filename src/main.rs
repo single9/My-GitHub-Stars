@@ -7,8 +7,19 @@ mod config;
 mod storage;
 mod tui;
 
+#[cfg(feature = "gui")]
+mod gui;
+
 use anyhow::Result;
 
+// ── GUI entry point ───────────────────────────────────────────────────────────
+#[cfg(feature = "gui")]
+fn main() {
+    gui::run();
+}
+
+// ── TUI entry point ───────────────────────────────────────────────────────────
+#[cfg(not(feature = "gui"))]
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = config::Config::load()?;
