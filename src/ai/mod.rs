@@ -83,10 +83,44 @@ impl AiClient {
         }
     }
 
+    /// Pre-filter repos by keyword relevance to keep the prompt within token limits.
+    /// Scores each repo against query keywords; returns top `limit` candidates.
+    fn prefilter<'a>(query: &str, repos: &'a [RepoRow], limit: usize) -> Vec<&'a RepoRow> {
+        let keywords: Vec<String> = query
+            .split_whitespace()
+            .map(|w| w.to_lowercase())
+            .collect();
+
+        let mut scored: Vec<(usize, &RepoRow)> = repos
+            .iter()
+            .map(|r| {
+                let haystack = format!(
+                    "{} {} {} {}",
+                    r.full_name.to_lowercase(),
+                    r.description.as_deref().unwrap_or("").to_lowercase(),
+                    r.language.as_deref().unwrap_or("").to_lowercase(),
+                    r.topics().join(" ").to_lowercase(),
+                );
+                let score = keywords
+                    .iter()
+                    .filter(|kw| haystack.contains(kw.as_str()))
+                    .count();
+                (score, r)
+            })
+            .collect();
+
+        // Sort by score descending; keep all non-zero hits, then fill with rest if needed.
+        scored.sort_by(|a, b| b.0.cmp(&a.0));
+        scored.into_iter().map(|(_, r)| r).take(limit).collect()
+    }
+
     /// Send a natural-language query with the full repo list to the LLM.
     /// Returns a list of `full_name` strings for the most relevant repos.
     pub async fn search(&self, query: &str, repos: &[RepoRow]) -> Result<Vec<String>> {
-        let repo_list: String = repos
+        // Narrow down to ≤150 repos via keyword pre-filter to stay within token limits.
+        let candidates = Self::prefilter(query, repos, 150);
+
+        let repo_list: String = candidates
             .iter()
             .map(|r| {
                 let desc: String = r
@@ -94,7 +128,7 @@ impl AiClient {
                     .as_deref()
                     .unwrap_or("")
                     .chars()
-                    .take(120)
+                    .take(80)
                     .collect();
                 let lang = r.language.as_deref().unwrap_or("");
                 let topics = r.topics();
