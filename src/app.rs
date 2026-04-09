@@ -109,8 +109,12 @@ pub struct App {
     // Settings — API key editing
     pub settings_editing_key: bool,
     pub settings_key_input: String,
-    /// Which settings field is being edited: "openai" | "copilot"
+    /// Which settings field is being edited: "openai" | "copilot" | "model"
     pub settings_editing_field: String,
+    /// Whether the model picker menu is open
+    pub settings_model_picking: bool,
+    /// Cursor position in the model picker list
+    pub settings_model_cursor: usize,
 
     // Stats
     pub total_repos: i64,
@@ -160,6 +164,8 @@ impl App {
             settings_editing_key: false,
             settings_key_input: String::new(),
             settings_editing_field: String::new(),
+            settings_model_picking: false,
+            settings_model_cursor: 0,
             total_repos: 0,
             total_categories: 0,
             tick_count: 0,
@@ -425,6 +431,41 @@ impl App {
     }
 
     fn handle_settings_key(&mut self, key: crossterm::event::KeyEvent) {
+        // Model picker takes priority
+        if self.settings_model_picking {
+            let total = crate::ai::KNOWN_MODELS.len() + 1; // +1 for Custom
+            match key.code {
+                KeyCode::Esc => {
+                    self.settings_model_picking = false;
+                }
+                KeyCode::Up => {
+                    if self.settings_model_cursor > 0 {
+                        self.settings_model_cursor -= 1;
+                    } else {
+                        self.settings_model_cursor = total - 1;
+                    }
+                }
+                KeyCode::Down => {
+                    self.settings_model_cursor = (self.settings_model_cursor + 1) % total;
+                }
+                KeyCode::Enter => {
+                    self.settings_model_picking = false;
+                    if self.settings_model_cursor < crate::ai::KNOWN_MODELS.len() {
+                        let chosen = crate::ai::KNOWN_MODELS[self.settings_model_cursor].0;
+                        self.config.openai_model = Some(chosen.to_string());
+                        let _ = self.config.save();
+                    } else {
+                        // Custom — fall through to text input
+                        self.settings_key_input =
+                            self.config.openai_model.clone().unwrap_or_default();
+                        self.settings_editing_field = "model".to_string();
+                        self.settings_editing_key = true;
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
         if self.settings_editing_key {
             match key.code {
                 KeyCode::Esc => {
@@ -477,9 +518,14 @@ impl App {
                 self.settings_editing_key = true;
             }
             KeyCode::Char('m') => {
-                self.settings_key_input = self.config.openai_model.clone().unwrap_or_default();
-                self.settings_editing_field = "model".to_string();
-                self.settings_editing_key = true;
+                // Find cursor position matching current model
+                let current = self.config.openai_model.as_deref().unwrap_or("");
+                let pos = crate::ai::KNOWN_MODELS
+                    .iter()
+                    .position(|(id, _)| *id == current)
+                    .unwrap_or(0);
+                self.settings_model_cursor = pos;
+                self.settings_model_picking = true;
             }
             KeyCode::Char('c') => {
                 self.config.use_copilot = !self.config.use_copilot;

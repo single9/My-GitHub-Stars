@@ -11,6 +11,20 @@ pub const DEFAULT_MODEL: &str = "gpt-4o-mini";
 pub const COPILOT_BASE_URL: &str = "https://models.inference.ai.azure.com";
 pub const COPILOT_DEFAULT_MODEL: &str = "gpt-4o-mini";
 
+/// Well-known models available on GitHub Models (and OpenAI).
+/// Each entry is (model_id, short_description).
+pub const KNOWN_MODELS: &[(&str, &str)] = &[
+    ("gpt-4o-mini",                     "OpenAI  · fast, cheap (default)"),
+    ("gpt-4o",                          "OpenAI  · powerful"),
+    ("o3-mini",                         "OpenAI  · reasoning"),
+    ("meta-llama-3.3-70b-instruct",     "Meta    · open-source, multilingual"),
+    ("mistral-large-2411",              "Mistral · multilingual"),
+    ("phi-4",                           "Microsoft · small, fast"),
+    ("phi-4-mini-instruct",             "Microsoft · very fast"),
+    ("deepseek-r1",                     "DeepSeek · reasoning"),
+    ("cohere-command-r-plus-08-2024",   "Cohere  · retrieval-focused"),
+];
+
 enum AiAuth {
     ApiKey(String),
     /// GitHub PAT used directly as a bearer token (no exchange needed).

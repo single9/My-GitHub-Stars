@@ -1,13 +1,13 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 use crate::app::{App, Screen, SyncStatus};
-use crate::ai::{DEFAULT_BASE_URL, DEFAULT_MODEL, COPILOT_BASE_URL, COPILOT_DEFAULT_MODEL};
+use crate::ai::{DEFAULT_BASE_URL, DEFAULT_MODEL, COPILOT_BASE_URL, COPILOT_DEFAULT_MODEL, KNOWN_MODELS};
 
 fn fmt_stars(n: i64) -> String {
     if n >= 1_000_000 {
@@ -611,7 +611,7 @@ fn draw_settings(frame: &mut Frame, app: &App) {
         let field_title = if app.settings_editing_field == "copilot" {
             " Copilot GitHub Token "
         } else if app.settings_editing_field == "model" {
-            " Model "
+            " Custom Model Name "
         } else {
             " OpenAI API Key "
         };
@@ -624,6 +624,78 @@ fn draw_settings(frame: &mut Frame, app: &App) {
                     .border_style(Style::default().fg(Color::Yellow)),
             );
         frame.render_widget(input, chunks[1]);
+    }
+
+    // Model picker overlay
+    if app.settings_model_picking {
+        let popup_area = centered_rect(62, KNOWN_MODELS.len() as u16 + 5, area);
+        frame.render_widget(Clear, popup_area);
+
+        let items: Vec<ListItem> = KNOWN_MODELS
+            .iter()
+            .enumerate()
+            .map(|(i, (id, desc))| {
+                let selected = i == app.settings_model_cursor;
+                let current = app.config.openai_model.as_deref()
+                    .unwrap_or(COPILOT_DEFAULT_MODEL) == *id;
+                let marker = if current { "●" } else { " " };
+                let line = Line::from(vec![
+                    Span::styled(
+                        format!(" {} {:<36}", marker, id),
+                        if selected {
+                            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+                        } else if current {
+                            Style::default().fg(Color::Cyan)
+                        } else {
+                            Style::default().fg(Color::White)
+                        },
+                    ),
+                    Span::styled(
+                        format!(" {}", desc),
+                        if selected {
+                            Style::default().fg(Color::Black).bg(Color::Cyan)
+                        } else {
+                            Style::default().fg(Color::DarkGray)
+                        },
+                    ),
+                ]);
+                ListItem::new(line)
+            })
+            .chain(std::iter::once({
+                let selected = app.settings_model_cursor == KNOWN_MODELS.len();
+                ListItem::new(Line::from(Span::styled(
+                    "   ✎ Custom model name...",
+                    if selected {
+                        Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::Yellow)
+                    },
+                )))
+            }))
+            .collect();
+
+        let mut list_state = ListState::default();
+        list_state.select(Some(app.settings_model_cursor));
+
+        let picker = List::new(items)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Select Model  [↑/↓] navigate  [Enter] select  [Esc] cancel ")
+                    .border_style(Style::default().fg(Color::Cyan)),
+            );
+        frame.render_stateful_widget(picker, popup_area, &mut list_state);
+    }
+}
+
+fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+    Rect {
+        x,
+        y,
+        width: width.min(area.width),
+        height: height.min(area.height),
     }
 }
 
