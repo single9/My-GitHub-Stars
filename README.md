@@ -3,12 +3,12 @@
 A terminal UI (and desktop GUI) app for browsing, searching, and categorising your GitHub starred repositories.
 
 ```
-┌ GitHub Stars Pocket ──────────────────────────────────────────┐
+┌ My GitHub Stars ──────────────────────────────────────────────┐
 │  ★ Starred repos : 1029                                       │
 │  ⊕ Categories   : 94                                          │
 │  ↺ Last sync    : 2026-04-09 03:32 UTC                        │
 │                                                               │
-│  [b] Browse by category   [/] Search repos   [i] AI Search   │
+│  [b] Browse by category   [/] Search repos   [i] AI Search    │
 │  [s] Settings             [u] Sync now       [q] Quit         │
 └───────────────────────────────────────────────────────────────┘
 ```
