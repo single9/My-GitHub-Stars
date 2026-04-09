@@ -83,12 +83,12 @@ pub fn BrowseScreen() -> Element {
                         };
                         cats.into_iter().enumerate().map(move |(i, cat)| {
                             let is_selected = selected == Some(i);
-                            let bg = if is_selected { "background:#1f6feb;" } else { "" };
+                            let cat_bg = if is_selected { "#1f6feb" } else { "transparent" };
                             let icon = if cat.category_type == "language" { "◈" } else { "#" };
                             rsx! {
                                 div {
                                     key: "{cat.id}",
-                                    style: "padding:10px 14px;cursor:pointer;border-bottom:1px solid #21262d;{bg}",
+                                    style: "padding:10px 14px;cursor:pointer;border-bottom:1px solid #21262d;background:{cat_bg};",
                                     onclick: move |_| {
                                         let db_path = state.peek().db_path.clone();
                                         let cat_id = cat.id;
@@ -130,12 +130,12 @@ pub fn BrowseScreen() -> Element {
                             };
                             repos.into_iter().enumerate().map(move |(i, repo)| {
                                 let is_sel = selected == Some(i);
-                                let bg = if is_sel { "background:#21262d;" } else { "" };
+                                let repo_bg = if is_sel { "#21262d" } else { "transparent" };
                                 let lang = repo.language.clone().unwrap_or_default();
                                 rsx! {
                                     div {
                                         key: "{repo.id}",
-                                        style: "padding:10px 16px;cursor:pointer;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between;{bg}",
+                                        style: "padding:10px 16px;cursor:pointer;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between;background:{repo_bg};",
                                         onclick: move |_| { state.write().selected_repo = Some(i); },
                                         ondoubleclick: move |_| { let _ = open::that(&repo.url); },
                                         div {

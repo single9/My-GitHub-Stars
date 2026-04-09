@@ -157,12 +157,12 @@ pub fn AiSearchScreen() -> Element {
                         };
                         repos.into_iter().enumerate().map(move |(i, repo)| {
                             let is_sel = selected == Some(i);
-                            let bg = if is_sel { "background:#21262d;" } else { "" };
+                            let repo_bg = if is_sel { "#21262d" } else { "transparent" };
                             let lang = repo.language.clone().unwrap_or_default();
                             rsx! {
                                 div {
                                     key: "{repo.id}",
-                                    style: "padding:10px 16px;cursor:pointer;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between;{bg}",
+                                    style: "padding:10px 16px;cursor:pointer;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between;background:{repo_bg};",
                                     onclick: move |_| { state.write().selected_repo = Some(i); },
                                     ondoubleclick: move |_| { let _ = open::that(&repo.url); },
                                     div {
