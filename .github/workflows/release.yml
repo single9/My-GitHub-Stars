@@ -32,15 +32,15 @@ jobs:
             feature_flags: "--features gui --no-default-features"
             artifact_name: ghstars-gui-macos-arm64
 
-          # macOS x86_64
+          # macOS x86_64 (cross-compiled from ARM64)
           - label: TUI - macOS x86_64
-            runner: macos-13
+            runner: macos-latest
             target: x86_64-apple-darwin
             feature_flags: ""
             artifact_name: ghstars-tui-macos-x86_64
 
           - label: GUI - macOS x86_64
-            runner: macos-13
+            runner: macos-latest
             target: x86_64-apple-darwin
             feature_flags: "--features gui --no-default-features"
             artifact_name: ghstars-gui-macos-x86_64
