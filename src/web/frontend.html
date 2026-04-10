@@ -146,8 +146,13 @@ var _toastTimer;
 function toast(msg,type){var el=document.getElementById('toast');el.textContent=msg;el.className='show '+(type||'');clearTimeout(_toastTimer);_toastTimer=setTimeout(function(){el.className='';},3000);}
 
 async function init(){
+  var settingsReq=fetch('/api/settings').then(function(r){return r.json();});
   await Promise.all([loadAuthStatus(),loadStats(),loadCategories()]);
   loadRepos();
+  var settings=await settingsReq;
+  if(st.authenticated&&settings.auto_update){
+    setTimeout(function(){openSyncDrawer();setTimeout(startSync,100);},500);
+  }
   document.getElementById('search-bar').addEventListener('input',function(e){
     clearTimeout(st.searchTimer);
     var q=e.target.value.trim();
