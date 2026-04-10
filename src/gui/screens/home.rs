@@ -1,12 +1,13 @@
 use dioxus::prelude::*;
 
-use crate::gui::{db, state::{GuiAppState, GuiScreen}};
+use crate::api::ApiClient;
+use crate::gui::{db, state::{GuiAppState, GuiScreen, LogEntry}};
 
 #[component]
 pub fn HomeScreen() -> Element {
     let mut state = use_context::<Signal<GuiAppState>>();
 
-    // Load stats + categories on mount
+    // Load stats + categories on mount, then check auto-update
     let mut loaded = use_signal(|| false);
     use_effect(move || {
         if *loaded.read() {
@@ -14,22 +15,74 @@ pub fn HomeScreen() -> Element {
         }
         loaded.set(true);
         let db_path = state.peek().db_path.clone();
+        let auto_update = state.peek().config.auto_update;
+        let token = state.peek().config.github_token.clone().unwrap_or_default();
         spawn(async move {
             let (total_repos, total_cats) = db::load_stats(db_path.clone()).await;
             let categories = db::load_categories(db_path.clone()).await;
             let displayed = if let Some(cat) = categories.first() {
-                db::load_repos_for_category(db_path, cat.id).await
+                db::load_repos_for_category(db_path.clone(), cat.id).await
             } else {
                 Vec::new()
             };
-            let mut s = state.write();
-            s.total_repos = total_repos;
-            s.total_categories = total_cats;
-            s.categories = categories;
-            if !s.categories.is_empty() && s.selected_category.is_none() {
-                s.selected_category = Some(0);
+            {
+                let mut s = state.write();
+                s.total_repos = total_repos;
+                s.total_categories = total_cats;
+                s.categories = categories;
+                if !s.categories.is_empty() && s.selected_category.is_none() {
+                    s.selected_category = Some(0);
+                }
+                s.displayed_repos = displayed;
             }
-            s.displayed_repos = displayed;
+
+            // Auto-update: compare local count vs GitHub, sync only if different
+            if auto_update && !token.is_empty() {
+                let api = ApiClient::new(&token);
+                let github_count = match api.get_starred_count().await {
+                    Ok(n) => n,
+                    Err(_) => return, // silently skip on API error
+                };
+                if github_count == total_repos {
+                    return; // already up to date
+                }
+
+                state.write().bg_syncing = true;
+
+                let repos = match api.fetch_all_starred(None).await {
+                    Ok(r) => r,
+                    Err(_) => {
+                        state.write().bg_syncing = false;
+                        return;
+                    }
+                };
+
+                let (new_total, new_cats_count) = match db::store_repos(db_path.clone(), repos).await {
+                    Ok(counts) => counts,
+                    Err(e) => {
+                        state.write().sync_log.push(LogEntry { text: e, color: "#f85149" });
+                        state.write().bg_syncing = false;
+                        return;
+                    }
+                };
+
+                let now = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
+                {
+                    let mut cfg = state.peek().config.clone();
+                    cfg.last_sync = Some(now.clone());
+                    let _ = cfg.save();
+                }
+                let cats = db::load_categories(db_path).await;
+                let mut s = state.write();
+                s.total_repos = new_total;
+                s.total_categories = new_cats_count;
+                s.categories = cats;
+                if s.selected_category.is_none() && !s.categories.is_empty() {
+                    s.selected_category = Some(0);
+                }
+                s.config.last_sync = Some(now);
+                s.bg_syncing = false;
+            }
         });
     });
 

@@ -718,12 +718,25 @@ pub async fn run_app(
                         && app.tick_count == 1   // first tick after startup
                     {
                         if let Some(token) = app.config.github_token.clone() {
+                            let local_count = db.count_repos().unwrap_or(0);
                             let (done_tx, done_rx) = oneshot::channel::<Result<Vec<StarredRepo>, String>>();
                             let (prog_tx, _prog_rx) = watch::channel::<usize>(0);
                             app.fetch_done_rx = Some(done_rx);
                             app.bg_syncing = true;
                             tokio::spawn(async move {
                                 let api = ApiClient::new(&token);
+                                match api.get_starred_count().await {
+                                    Ok(github_count) if github_count == local_count => {
+                                        // Counts match — no sync needed
+                                        let _ = done_tx.send(Ok(vec![]));
+                                        return;
+                                    }
+                                    Ok(_) => {} // counts differ, proceed with full fetch
+                                    Err(e) => {
+                                        let _ = done_tx.send(Err(format!("Count check: {e}")));
+                                        return;
+                                    }
+                                }
                                 match api.fetch_all_starred(Some(prog_tx)).await {
                                     Ok(repos) => { let _ = done_tx.send(Ok(repos)); }
                                     Err(e)    => { let _ = done_tx.send(Err(e.to_string())); }
@@ -749,16 +762,19 @@ pub async fn run_app(
                             app.fetch_done_rx = None;
                             app.bg_syncing = false;
                             if let Ok(repos) = result {
-                                for repo in &repos {
-                                    if let Ok(row_id) = db.upsert_repo(repo) {
-                                        let _ = Classifier::classify_and_store(db, &[(row_id, repo)]);
+                                if !repos.is_empty() {
+                                    // repos is empty when counts matched (no sync needed)
+                                    for repo in &repos {
+                                        if let Ok(row_id) = db.upsert_repo(repo) {
+                                            let _ = Classifier::classify_and_store(db, &[(row_id, repo)]);
+                                        }
                                     }
+                                    let now = Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
+                                    app.config.last_sync = Some(now);
+                                    let _ = app.config.save();
+                                    app.load_stats(db);
+                                    app.load_categories(db);
                                 }
-                                let now = Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
-                                app.config.last_sync = Some(now);
-                                let _ = app.config.save();
-                                app.load_stats(db);
-                                app.load_categories(db);
                             }
                             // errors are silently ignored for background sync
                         }
