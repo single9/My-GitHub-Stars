@@ -320,7 +320,7 @@ function renderRepos(repos){
       (r.description?'<div class="desc">'+esc(r.description)+'</div>':'')+
       '<div class="meta">'+
       (r.language?'<span class="lang">&#9899; '+esc(r.language)+'</span>':'')+
-      '<span class="stars">&#9733; '+fmtStars(r.stars)+'</span>'+
+      '<span class="stars">&#9733; '+fmtStars(r.stars_count)+'</span>'+
       (topics?'<span>'+topics+'</span>':'')+
       '</div></div>';
   }).join('');
