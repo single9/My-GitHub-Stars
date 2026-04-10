@@ -137,7 +137,7 @@
 </div>
 <div id="toast"></div>
 <script>
-var st={authenticated:false,hasClientId:false,aiMode:false,activeCatId:null,searchTimer:null,syncSource:null,deviceCode:null,pollTimer:null};
+var st={authenticated:false,hasClientId:false,aiMode:false,activeCatId:null,searchTimer:null,syncSource:null,bgSyncSource:null,deviceCode:null,pollTimer:null};
 
 function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fmtStars(n){return n>=1000?(n/1000).toFixed(1)+'k':String(n);}
@@ -146,13 +146,10 @@ var _toastTimer;
 function toast(msg,type){var el=document.getElementById('toast');el.textContent=msg;el.className='show '+(type||'');clearTimeout(_toastTimer);_toastTimer=setTimeout(function(){el.className='';},3000);}
 
 async function init(){
-  var settingsReq=fetch('/api/settings').then(function(r){return r.json();});
   await Promise.all([loadAuthStatus(),loadStats(),loadCategories()]);
   loadRepos();
-  var settings=await settingsReq;
-  if(st.authenticated&&settings.auto_update){
-    setTimeout(function(){openSyncDrawer();setTimeout(startSync,100);},500);
-  }
+  // Subscribe to SSE to catch any background auto-sync already in progress
+  subscribeBackgroundSync();
   document.getElementById('search-bar').addEventListener('input',function(e){
     clearTimeout(st.searchTimer);
     var q=e.target.value.trim();
@@ -344,31 +341,76 @@ function openSyncDrawer(){
     '<button class="primary" id="btn-start-sync" '+ (!st.authenticated?'disabled':'')+' onclick="startSync()">Start Sync</button>'+
     '<div id="sync-log" class="sync-log" style="margin-top:14px;display:none"></div>';
   openDrawer('Sync Repositories',div);
+  // Show any buffered log from current/last sync
+  subscribeDrawerSync();
 }
 
-async function startSync(){
-  var log=document.getElementById('sync-log');
-  log.style.display='flex';log.innerHTML='';
-  document.getElementById('btn-start-sync').disabled=true;
-  if(st.syncSource)st.syncSource.close();
+// Subscribe to the background SSE stream and show progress in the drawer log if open.
+function subscribeDrawerSync(){
+  if(st.syncSource){st.syncSource.close();st.syncSource=null;}
   st.syncSource=new EventSource('/api/sync');
   st.syncSource.onmessage=function(e){
     try{
       var d=JSON.parse(e.data);
-      var el=document.createElement('div');
-      el.className='sle '+(d.type==='done'?'log-done':d.type==='error'?'log-error':'log-info');
-      el.textContent=d.msg;log.appendChild(el);log.scrollTop=log.scrollHeight;
+      var log=document.getElementById('sync-log');
+      if(log){
+        log.style.display='flex';
+        var el=document.createElement('div');
+        el.className='sle '+(d.type==='done'?'log-done':d.type==='error'?'log-error':'log-info');
+        el.textContent=d.msg;log.appendChild(el);log.scrollTop=log.scrollHeight;
+      }
       if(d.type==='done'||d.type==='error'){
         st.syncSource.close();st.syncSource=null;
         loadStats();loadCategories();loadRepos();
+        setSyncIndicator(false);
       }
     }catch(ex){}
   };
   st.syncSource.onerror=function(){
-    var el=document.createElement('div');
-    el.className='sle log-error';el.textContent='Connection error.';
-    log.appendChild(el);st.syncSource.close();
+    st.syncSource.close();st.syncSource=null;
+    setSyncIndicator(false);
   };
+}
+
+// Silent SSE subscription for background auto-sync (no drawer needed).
+function subscribeBackgroundSync(){
+  if(st.syncSource)return; // already subscribed
+  var evs=new EventSource('/api/sync');
+  evs.onmessage=function(e){
+    try{
+      var d=JSON.parse(e.data);
+      setSyncIndicator(true);
+      if(d.type==='done'){
+        evs.close();setSyncIndicator(false);
+        loadStats();loadCategories();loadRepos();
+        toast('\u2713 Auto-sync complete','ok');
+      } else if(d.type==='error'){
+        evs.close();setSyncIndicator(false);
+        toast('Auto-sync error: '+d.msg,'err');
+      }
+    }catch(ex){}
+  };
+  evs.onerror=function(){evs.close();setSyncIndicator(false);};
+  // Keep reference so openSyncDrawer can close it and re-subscribe with log view
+  st.bgSyncSource=evs;
+}
+
+async function startSync(){
+  // Close background listener if any, then subscribe with drawer log
+  if(st.bgSyncSource){st.bgSyncSource.close();st.bgSyncSource=null;}
+  subscribeDrawerSync();
+  // Trigger sync via POST (409 = already running, which is fine — SSE will show progress)
+  var r=await fetch('/api/sync',{method:'POST'});
+  if(r.status===409){toast('Sync already in progress','ok');return;}
+  if(!r.ok){var t=await r.text();toast(t,'err');}
+  else{setSyncIndicator(true);}
+  var btn=document.getElementById('btn-start-sync');
+  if(btn)btn.disabled=true;
+}
+
+function setSyncIndicator(on){
+  var btn=document.getElementById('btn-sync');
+  if(btn)btn.style.color=on?'var(--yellow)':'';
 }
 
 document.getElementById('btn-settings').onclick=openSettingsDrawer;

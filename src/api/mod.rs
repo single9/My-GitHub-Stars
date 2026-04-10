@@ -74,6 +74,33 @@ impl ApiClient {
         Self { http, token: token.into() }
     }
 
+    pub async fn get_starred_count(&self) -> anyhow::Result<i64> {
+        let url = format!("{}/user/starred?per_page=1", API_BASE);
+        let response = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to get starred count")?;
+
+        if response.status() == 401 {
+            anyhow::bail!("GitHub token is invalid or expired.");
+        }
+
+        if let Some(count) = response
+            .headers()
+            .get("Link")
+            .and_then(|v| v.to_str().ok())
+            .and_then(parse_last_page)
+        {
+            return Ok(count);
+        }
+
+        // No pagination link → 0 or 1 result
+        let items: Vec<serde_json::Value> = response.json().await.unwrap_or_default();
+        Ok(items.len() as i64)
+    }
+
     pub async fn fetch_all_starred(
         &self,
         progress_tx: Option<watch::Sender<usize>>,
@@ -162,4 +189,20 @@ impl ApiClient {
 
         Ok(user.login)
     }
+}
+
+fn parse_last_page(link: &str) -> Option<i64> {
+    for part in link.split(',') {
+        if part.contains("rel=\"last\"") {
+            if let Some(url_part) = part.split(';').next() {
+                let url = url_part.trim().trim_start_matches('<').trim_end_matches('>');
+                for param in url.split('&') {
+                    if let Some(n) = param.strip_prefix("page=") {
+                        return n.parse().ok();
+                    }
+                }
+            }
+        }
+    }
+    None
 }
