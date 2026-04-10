@@ -109,11 +109,11 @@
       <span class="count" id="count-all"></span>
     </div>
     <div id="cat-lang-header" class="sidebar-section collapsible" style="display:none" onclick="toggleSection('lang')">
-      <span>Languages</span><span id="lang-chevron">&#9660;</span>
+      <span>Languages</span><span id="lang-chevron">&#x25BC;</span>
     </div>
     <div id="cat-lang"></div>
     <div id="cat-topic-header" class="sidebar-section collapsible" style="display:none" onclick="toggleSection('topic')">
-      <span>Topics</span><span id="topic-chevron">&#9660;</span>
+      <span>Topics</span><span id="topic-chevron">&#x25BC;</span>
     </div>
     <div id="cat-topic"></div>
   </div>
@@ -258,7 +258,7 @@ function renderCategories(q){
     langHeader.style.display='';
     var collapsed=_collapsed.lang&&lq==='';
     document.getElementById('cat-lang').style.display=collapsed?'none':'';
-    document.getElementById('lang-chevron').textContent=collapsed?'&#9658;':'&#9660;';
+    document.getElementById('lang-chevron').textContent=collapsed?'\u25B6':'\u25BC';
     document.getElementById('cat-lang').innerHTML=lang.map(function(c){
       return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+(c.count||'')+'</span></div>';
     }).join('');
@@ -267,7 +267,7 @@ function renderCategories(q){
     topicHeader.style.display='';
     var tcollapsed=_collapsed.topic&&lq==='';
     document.getElementById('cat-topic').style.display=tcollapsed?'none':'';
-    document.getElementById('topic-chevron').textContent=tcollapsed?'&#9658;':'&#9660;';
+    document.getElementById('topic-chevron').textContent=tcollapsed?'\u25B6':'\u25BC';
     document.getElementById('cat-topic').innerHTML=topic.map(function(c){
       return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+(c.count||'')+'</span></div>';
     }).join('');
