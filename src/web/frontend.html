@@ -31,6 +31,8 @@
     #main{display:flex;flex:1;overflow:hidden}
     #sidebar{width:200px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:8px 0}
     .sidebar-section{padding:6px 12px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+    .collapsible{cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none}
+    .collapsible:hover{color:var(--text)}
     .cat-item{display:flex;align-items:center;justify-content:space-between;padding:6px 16px;cursor:pointer;transition:background .1s}
     .cat-item:hover{background:var(--bg3)}
     .cat-item.active{background:var(--bg3);color:var(--accent)}
@@ -98,14 +100,21 @@
 </div>
 <div id="main">
   <div id="sidebar">
+    <div style="padding:8px">
+      <input id="cat-filter" type="search" placeholder="Filter categories…" oninput="filterCategories(this.value)" autocomplete="off" style="font-size:12px;padding:5px 8px"/>
+    </div>
     <div class="sidebar-section">Browse</div>
     <div class="cat-item active" data-id="" id="cat-all" onclick="selectCat(null,this)">
       <span class="name">All Stars</span>
       <span class="count" id="count-all"></span>
     </div>
-    <div id="cat-lang-header" class="sidebar-section" style="display:none">Languages</div>
+    <div id="cat-lang-header" class="sidebar-section collapsible" style="display:none" onclick="toggleSection('lang')">
+      <span>Languages</span><span id="lang-chevron">&#9660;</span>
+    </div>
     <div id="cat-lang"></div>
-    <div id="cat-topic-header" class="sidebar-section" style="display:none">Topics</div>
+    <div id="cat-topic-header" class="sidebar-section collapsible" style="display:none" onclick="toggleSection('topic')">
+      <span>Topics</span><span id="topic-chevron">&#9660;</span>
+    </div>
     <div id="cat-topic"></div>
   </div>
   <div id="content">
@@ -231,22 +240,48 @@ async function loadStats(){
   document.getElementById('count-all').textContent=s.total_repos;
 }
 
+var _allCats=[];
+var _collapsed={lang:false,topic:false};
+
 async function loadCategories(){
-  var cats=await fetch('/api/categories').then(function(r){return r.json();});
-  var lang=cats.filter(function(c){return c.category_type==='language';});
-  var topic=cats.filter(function(c){return c.category_type==='topic';});
+  _allCats=await fetch('/api/categories').then(function(r){return r.json();});
+  renderCategories('');
+}
+
+function renderCategories(q){
+  var lq=q.toLowerCase();
+  var lang=_allCats.filter(function(c){return c.category_type==='language'&&(lq===''||c.name.toLowerCase().includes(lq));});
+  var topic=_allCats.filter(function(c){return c.category_type==='topic'&&(lq===''||c.name.toLowerCase().includes(lq));});
+  var langHeader=document.getElementById('cat-lang-header');
+  var topicHeader=document.getElementById('cat-topic-header');
   if(lang.length){
-    document.getElementById('cat-lang-header').style.display='';
+    langHeader.style.display='';
+    var collapsed=_collapsed.lang&&lq==='';
+    document.getElementById('cat-lang').style.display=collapsed?'none':'';
+    document.getElementById('lang-chevron').textContent=collapsed?'&#9658;':'&#9660;';
     document.getElementById('cat-lang').innerHTML=lang.map(function(c){
-      return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+( c.count||'')+ '</span></div>';
+      return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+(c.count||'')+'</span></div>';
     }).join('');
-  }
+  } else { langHeader.style.display='none'; document.getElementById('cat-lang').innerHTML=''; }
   if(topic.length){
-    document.getElementById('cat-topic-header').style.display='';
+    topicHeader.style.display='';
+    var tcollapsed=_collapsed.topic&&lq==='';
+    document.getElementById('cat-topic').style.display=tcollapsed?'none':'';
+    document.getElementById('topic-chevron').textContent=tcollapsed?'&#9658;':'&#9660;';
     document.getElementById('cat-topic').innerHTML=topic.map(function(c){
       return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+(c.count||'')+'</span></div>';
     }).join('');
-  }
+  } else { topicHeader.style.display='none'; document.getElementById('cat-topic').innerHTML=''; }
+}
+
+function filterCategories(q){
+  renderCategories(q);
+}
+
+function toggleSection(name){
+  _collapsed[name]=!_collapsed[name];
+  var q=document.getElementById('cat-filter').value||'';
+  renderCategories(q);
 }
 
 function selectCat(id,el){

@@ -71,41 +71,73 @@ pub fn BrowseScreen() -> Element {
 
                 // ── Category sidebar ──────────────────────────────────────
                 div {
-                    style: "width:240px;border-right:1px solid #30363d;overflow-y:auto;",
+                    style: "width:240px;border-right:1px solid #30363d;overflow-y:auto;display:flex;flex-direction:column;",
+
+                    // Filter input
                     div {
-                        style: "padding:8px 12px;color:#8b949e;font-size:11px;border-bottom:1px solid #30363d;",
-                        "CATEGORIES"
-                    }
-                    {
-                        let (cats, selected) = {
-                            let s = state.read();
-                            (s.categories.clone(), s.selected_category)
-                        };
-                        cats.into_iter().enumerate().map(move |(i, cat)| {
-                            let is_selected = selected == Some(i);
-                            let cat_bg = if is_selected { "#1f6feb" } else { "transparent" };
-                            let icon = if cat.category_type == "language" { "◈" } else { "#" };
-                            rsx! {
-                                div {
-                                    key: "{cat.id}",
-                                    style: "padding:10px 14px;cursor:pointer;border-bottom:1px solid #21262d;background:{cat_bg};",
-                                    onclick: move |_| {
-                                        let db_path = state.peek().db_path.clone();
-                                        let cat_id = cat.id;
-                                        state.write().selected_category = Some(i);
-                                        state.write().selected_repo = None;
-                                        spawn(async move {
-                                            let repos = db::load_repos_for_category(db_path, cat_id).await;
-                                            state.write().displayed_repos = repos;
-                                        });
-                                    },
-                                    div { style: "color:#c9d1d9;font-size:13px;",
-                                        "{icon} {cat.name}"
-                                    }
-                                    div { style: "color:#8b949e;font-size:11px;", "{cat.count} repos" }
-                                }
+                        style: "padding:8px;border-bottom:1px solid #30363d;flex-shrink:0;",
+                        input {
+                            r#type: "text",
+                            placeholder: "Filter categories…",
+                            value: "{state.read().category_filter}",
+                            style: "width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:12px;padding:5px 8px;outline:none;",
+                            oninput: move |e| {
+                                state.write().category_filter = e.value();
+                                // Reset selection to first visible
+                                let q = e.value().to_lowercase();
+                                let first = state.read().categories.iter().position(|c| {
+                                    q.is_empty() || c.name.to_lowercase().contains(&q)
+                                });
+                                state.write().selected_category = first;
                             }
-                        })
+                        }
+                    }
+
+                    div {
+                        style: "flex:1;overflow-y:auto;",
+                        div {
+                            style: "padding:8px 12px;color:#8b949e;font-size:11px;border-bottom:1px solid #30363d;",
+                            {
+                                let s = state.read();
+                                let q = s.category_filter.to_lowercase();
+                                let visible = s.categories.iter().filter(|c| q.is_empty() || c.name.to_lowercase().contains(&q)).count();
+                                if q.is_empty() { format!("CATEGORIES ({visible})") } else { format!("CATEGORIES ({visible}/{})", s.categories.len()) }
+                            }
+                        }
+                        {
+                            let (cats, selected, filter) = {
+                                let s = state.read();
+                                (s.categories.clone(), s.selected_category, s.category_filter.clone())
+                            };
+                            let q = filter.to_lowercase();
+                            cats.into_iter().enumerate().filter(move |(_, c)| {
+                                q.is_empty() || c.name.to_lowercase().contains(&q)
+                            }).map(move |(i, cat)| {
+                                let is_selected = selected == Some(i);
+                                let cat_bg = if is_selected { "#1f6feb" } else { "transparent" };
+                                let icon = if cat.category_type == "language" { "◈" } else { "#" };
+                                rsx! {
+                                    div {
+                                        key: "{cat.id}",
+                                        style: "padding:10px 14px;cursor:pointer;border-bottom:1px solid #21262d;background:{cat_bg};",
+                                        onclick: move |_| {
+                                            let db_path = state.peek().db_path.clone();
+                                            let cat_id = cat.id;
+                                            state.write().selected_category = Some(i);
+                                            state.write().selected_repo = None;
+                                            spawn(async move {
+                                                let repos = db::load_repos_for_category(db_path, cat_id).await;
+                                                state.write().displayed_repos = repos;
+                                            });
+                                        },
+                                        div { style: "color:#c9d1d9;font-size:13px;",
+                                            "{icon} {cat.name}"
+                                        }
+                                        div { style: "color:#8b949e;font-size:11px;", "{cat.count} repos" }
+                                    }
+                                }
+                            })
+                        }
                     }
                 }
 

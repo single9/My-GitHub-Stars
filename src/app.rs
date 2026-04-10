@@ -90,6 +90,7 @@ pub struct App {
     pub selected_category: Option<usize>,
     pub selected_repo: Option<usize>,
     pub browse_pane: BrowsePane,
+    pub category_filter: String,
     pub category_list_state: ListState,
     pub repo_list_state: ListState,
 
@@ -151,6 +152,7 @@ impl App {
             selected_category: None,
             selected_repo: None,
             browse_pane: BrowsePane::Categories,
+            category_filter: String::new(),
             category_list_state: ListState::default(),
             repo_list_state: ListState::default(),
             search_query: String::new(),
@@ -298,15 +300,38 @@ impl App {
 
     fn handle_browse_key(&mut self, key: crossterm::event::KeyEvent, db: &Database) {
         match key.code {
-            KeyCode::Char('q') | KeyCode::Esc => self.screen = Screen::Home,
+            KeyCode::Esc => {
+                if !self.category_filter.is_empty() {
+                    self.category_filter.clear();
+                    // Re-select first filtered category
+                    self.selected_category = if self.categories.is_empty() { None } else { Some(0) };
+                    self.load_repos_for_selected(db);
+                } else {
+                    self.screen = Screen::Home;
+                }
+            }
+            KeyCode::Char('q') if self.browse_pane != BrowsePane::Categories || self.category_filter.is_empty() => {
+                self.screen = Screen::Home;
+            }
             KeyCode::Left => self.browse_pane = BrowsePane::Categories,
             KeyCode::Right | KeyCode::Tab => self.browse_pane = BrowsePane::Repos,
+            KeyCode::Backspace if self.browse_pane == BrowsePane::Categories => {
+                if self.category_filter.pop().is_some() {
+                    self.select_first_filtered(db);
+                }
+            }
+            KeyCode::Char(c) if self.browse_pane == BrowsePane::Categories => {
+                self.category_filter.push(c);
+                self.select_first_filtered(db);
+            }
             KeyCode::Up => match self.browse_pane {
                 BrowsePane::Categories => {
-                    if let Some(i) = self.selected_category {
-                        let new = i.saturating_sub(1);
-                        self.selected_category = Some(new);
-                        self.load_repos_for_selected(db);
+                    let filtered = self.filtered_category_indices();
+                    if let Some(pos) = filtered.iter().position(|&i| Some(i) == self.selected_category) {
+                        if pos > 0 {
+                            self.selected_category = Some(filtered[pos - 1]);
+                            self.load_repos_for_selected(db);
+                        }
                     }
                 }
                 BrowsePane::Repos => {
@@ -317,9 +342,14 @@ impl App {
             },
             KeyCode::Down => match self.browse_pane {
                 BrowsePane::Categories => {
-                    let max = self.categories.len().saturating_sub(1);
-                    let new = self.selected_category.map(|i| (i + 1).min(max)).unwrap_or(0);
-                    self.selected_category = Some(new);
+                    let filtered = self.filtered_category_indices();
+                    if filtered.is_empty() { return; }
+                    let pos = filtered.iter().position(|&i| Some(i) == self.selected_category);
+                    let next = match pos {
+                        Some(p) => (p + 1).min(filtered.len() - 1),
+                        None => 0,
+                    };
+                    self.selected_category = Some(filtered[next]);
                     self.load_repos_for_selected(db);
                 }
                 BrowsePane::Repos => {
@@ -335,6 +365,23 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    /// Returns indices into `self.categories` that match the current filter.
+    pub fn filtered_category_indices(&self) -> Vec<usize> {
+        let q = self.category_filter.to_lowercase();
+        self.categories
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| q.is_empty() || c.name.to_lowercase().contains(&q))
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    fn select_first_filtered(&mut self, db: &Database) {
+        let filtered = self.filtered_category_indices();
+        self.selected_category = filtered.first().copied();
+        self.load_repos_for_selected(db);
     }
 
     fn handle_search_key(&mut self, key: crossterm::event::KeyEvent, db: &Database) {

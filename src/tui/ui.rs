@@ -250,10 +250,12 @@ fn draw_browse(frame: &mut Frame, app: &mut App) {
         BrowsePane::Categories => "◀ Categories │ Repositories",
         BrowsePane::Repos => "Categories │ Repositories ▶",
     };
-    let title = format!(
-        "Browse  {}   [←/→] switch pane  [↑/↓] navigate  [Enter] open URL  [q] back",
-        pane_label
-    );
+    let filter_hint = if app.browse_pane == BrowsePane::Categories {
+        "  [type] filter  [Bksp] delete  [Esc] clear/back"
+    } else {
+        "  [←/→] switch pane  [↑/↓] navigate  [Enter] open URL  [q] back"
+    };
+    let title = format!("Browse  {}{}", pane_label, filter_hint);
     let block = title_block(&title);
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -265,42 +267,61 @@ fn draw_browse(frame: &mut Frame, app: &mut App) {
 
     let cat_active = app.browse_pane == BrowsePane::Categories;
 
-    // Categories list
-    let cat_items: Vec<ListItem> = app
-        .categories
+    // Split category panel: filter input + list
+    let cat_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .split(chunks[0]);
+
+    // Filter input
+    let filter_text = format!(" 🔍 {}", app.category_filter);
+    let filter_style = if cat_active {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    let filter_widget = Paragraph::new(filter_text)
+        .block(Block::default().borders(Borders::ALL).border_style(filter_style))
+        .style(filter_style);
+    frame.render_widget(filter_widget, cat_chunks[0]);
+
+    // Filtered categories list
+    let filtered_indices = app.filtered_category_indices();
+    let cat_items: Vec<ListItem> = filtered_indices
         .iter()
-        .map(|c| {
+        .map(|&i| {
+            let c = &app.categories[i];
             let icon = if c.category_type == "language" { "◈" } else { "#" };
             ListItem::new(format!("{} {} ({})", icon, c.name, c.count))
         })
         .collect();
 
+    // Map selected_category (index in full list) to position in filtered list
+    let filtered_pos = app.selected_category.and_then(|sel| {
+        filtered_indices.iter().position(|&i| i == sel)
+    });
     let mut cat_state = ListState::default();
-    cat_state.select(app.selected_category);
+    cat_state.select(filtered_pos);
 
     let cat_block = if cat_active {
         Block::default()
-            .title(" Categories [focused] ")
+            .title(format!(" Categories ({}/{}) [focused] ", filtered_indices.len(), app.categories.len()))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan))
     } else {
         Block::default()
-            .title(" Categories ")
+            .title(format!(" Categories ({}) ", app.categories.len()))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::DarkGray))
     };
-    let cat_highlight = if cat_active {
-        highlight_style()
-    } else {
-        Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)
-    };
+    let cat_highlight = if cat_active { highlight_style() } else { Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM) };
     let cat_symbol = if cat_active { "▶ " } else { "  " };
 
     let cat_list = List::new(cat_items)
         .block(cat_block)
         .highlight_style(cat_highlight)
         .highlight_symbol(cat_symbol);
-    frame.render_stateful_widget(cat_list, chunks[0], &mut cat_state);
+    frame.render_stateful_widget(cat_list, cat_chunks[1], &mut cat_state);
     app.category_list_state = cat_state;
 
     // Repos list + detail

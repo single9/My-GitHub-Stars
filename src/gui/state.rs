@@ -53,6 +53,7 @@ pub struct GuiAppState {
     pub displayed_repos: Vec<RepoRow>,
     pub selected_category: Option<usize>,
     pub selected_repo: Option<usize>,
+    pub category_filter: String,
 
     // Search
     pub search_query: String,
@@ -107,6 +108,7 @@ impl GuiAppState {
             displayed_repos: Vec::new(),
             selected_category: None,
             selected_repo: None,
+            category_filter: String::new(),
             search_query: String::new(),
             search_results: Vec::new(),
             ai_query: String::new(),
