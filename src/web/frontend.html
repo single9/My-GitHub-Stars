@@ -1,514 +1,1207 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>My GitHub Stars</title>
-  <style>
-    :root {
-      --bg:#0d1117; --bg2:#161b22; --bg3:#21262d; --border:#30363d;
-      --text:#c9d1d9; --muted:#8b949e; --accent:#58a6ff;
-      --green:#3fb950; --yellow:#e3b341; --purple:#bc8cff; --red:#f85149;
-    }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-    a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
-    button{cursor:pointer;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:13px;background:var(--bg3);color:var(--text);transition:background .15s}
-    button:hover{background:var(--bg2);border-color:var(--accent)}
-    button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
-    button.primary:hover{background:#79c0ff}
-    button.danger{border-color:var(--red);color:var(--red)}
-    button:disabled{opacity:.5;cursor:default}
-    input,select,textarea{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:13px;outline:none;width:100%}
-    input:focus,select:focus{border-color:var(--accent)}
-    label{display:block;color:var(--muted);margin-bottom:4px;font-size:12px}
-    .badge{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:2px 10px;font-size:12px}
-    #header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
-    #header .logo{font-size:18px;font-weight:700;white-space:nowrap}
-    #header .stats{display:flex;gap:8px;flex-shrink:0}
-    #search-bar{flex:1;max-width:360px}
-    #header .actions{display:flex;gap:6px;margin-left:auto}
-    #main{display:flex;flex:1;overflow:hidden}
-    #sidebar{width:200px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:8px 0}
-    .sidebar-section{padding:6px 12px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
-    .collapsible{cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none}
-    .collapsible:hover{color:var(--text)}
-    .cat-item{display:flex;align-items:center;justify-content:space-between;padding:6px 16px;cursor:pointer;transition:background .1s}
-    .cat-item:hover{background:var(--bg3)}
-    .cat-item.active{background:var(--bg3);color:var(--accent)}
-    .cat-item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .cat-item .count{font-size:11px;color:var(--muted);flex-shrink:0;margin-left:4px}
-    #content{flex:1;overflow-y:auto;padding:16px}
-    #content-title{font-size:16px;font-weight:600;margin-bottom:12px;color:var(--muted)}
-    #repo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-    .repo-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s}
-    .repo-card:hover{border-color:var(--accent)}
-    .repo-card .name{font-weight:600;font-size:14px}
-    .repo-card .desc{color:var(--muted);font-size:12px;line-height:1.4;flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-    .repo-card .meta{display:flex;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap;align-items:center}
-    .repo-card .lang{color:var(--purple)}
-    .repo-card .stars{color:var(--yellow)}
-    #empty{text-align:center;padding:60px 20px;color:var(--muted)}
-    #empty .icon{font-size:48px;margin-bottom:12px}
-    #drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50}
-    #drawer-overlay.open{display:block}
-    #drawer{position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--bg2);border-left:1px solid var(--border);z-index:51;display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform .25s}
-    #drawer.open{transform:translateX(0)}
-    #drawer-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
-    #drawer-title{font-size:16px;font-weight:600}
-    #drawer-body{flex:1;overflow-y:auto;padding:18px}
-    .form-group{margin-bottom:14px}
-    .hint{font-size:11px;color:var(--muted);margin-top:4px}
-    .divider{border:none;border-top:1px solid var(--border);margin:14px 0}
-    .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
-    .toggle{position:relative;width:34px;height:18px}
-    .toggle input{opacity:0;width:0;height:0}
-    .slider{position:absolute;inset:0;background:var(--bg3);border-radius:18px;transition:background .2s;border:1px solid var(--border)}
-    .slider::before{content:"";position:absolute;height:12px;width:12px;left:2px;bottom:2px;background:var(--muted);border-radius:50%;transition:transform .2s,background .2s}
-    input:checked+.slider{background:var(--accent)}
-    input:checked+.slider::before{transform:translateX(16px);background:#fff}
-    .sync-log{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:12px;height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
-    .sle{white-space:pre-wrap;word-break:break-all}
-    .log-done{color:var(--green)} .log-error{color:var(--red)} .log-info{color:var(--muted)}
-    .login-code{font-size:28px;font-weight:700;letter-spacing:4px;color:var(--accent);text-align:center;padding:16px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
-    .step{display:none} .step.active{display:block}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .spin{display:inline-block;animation:spin .8s linear infinite}
-    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:13px;z-index:100;transition:transform .3s,opacity .3s;opacity:0}
-    #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-    #toast.ok{border-color:var(--green);color:var(--green)}
-    #toast.err{border-color:var(--red);color:var(--red)}
-    #loading{color:var(--muted);padding:40px;text-align:center}
-    @media(max-width:600px){#sidebar{display:none}#drawer{width:100%}#repo-grid{grid-template-columns:1fr}}
-  </style>
-</head>
-<body>
-<div id="header">
-  <span class="logo">&#11088; My GitHub Stars</span>
-  <div class="stats">
-    <span class="badge" id="stat-repos">&#8212; repos</span>
-    <span class="badge" id="stat-cats">&#8212; categories</span>
-    <span class="badge" id="stat-sync"></span>
-  </div>
-  <input id="search-bar" type="search" placeholder="Search repos&#8230; (Ctrl+K)" autocomplete="off"/>
-  <div class="actions">
-    <button id="btn-ai" title="AI Search">&#10022; AI</button>
-    <button id="btn-sync" title="Sync repos">&#8635; Sync</button>
-    <button id="btn-settings" title="Settings">&#9881; Settings</button>
-    <button id="btn-auth">Login</button>
-  </div>
-</div>
-<div id="main">
-  <div id="sidebar">
-    <div style="padding:8px">
-      <input id="cat-filter" type="search" placeholder="Filter categories…" oninput="filterCategories(this.value)" autocomplete="off" style="font-size:12px;padding:5px 8px"/>
-    </div>
-    <div class="sidebar-section">Browse</div>
-    <div class="cat-item active" data-id="" id="cat-all" onclick="selectCat(null,this)">
-      <span class="name">All Stars</span>
-      <span class="count" id="count-all"></span>
-    </div>
-    <div id="cat-lang-header" class="sidebar-section collapsible" style="display:none" onclick="toggleSection('lang')">
-      <span>Languages</span><span id="lang-chevron">&#x25B6;</span>
-    </div>
-    <div id="cat-lang"></div>
-    <div id="cat-topic-header" class="sidebar-section collapsible" style="display:none" onclick="toggleSection('topic')">
-      <span>Topics</span><span id="topic-chevron">&#x25B6;</span>
-    </div>
-    <div id="cat-topic"></div>
-  </div>
-  <div id="content">
-    <div id="loading">Loading&#8230;</div>
-    <div id="content-title" style="display:none"></div>
-    <div id="repo-grid" style="display:none"></div>
-    <div id="empty" style="display:none">
-      <div class="icon">&#128302;</div>
-      <div id="empty-msg">No repositories found.</div>
-    </div>
-  </div>
-</div>
-<div id="drawer-overlay" onclick="closeDrawer()"></div>
-<div id="drawer">
-  <div id="drawer-header">
-    <span id="drawer-title">Panel</span>
-    <button onclick="closeDrawer()" style="padding:4px 8px;font-size:16px">&#10005;</button>
-  </div>
-  <div id="drawer-body"></div>
-</div>
-<div id="toast"></div>
-<script>
-var st={authenticated:false,hasClientId:false,aiMode:false,activeCatId:null,searchTimer:null,syncSource:null,bgSyncSource:null,deviceCode:null,pollTimer:null};
-
-function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function fmtStars(n){return n>=1000?(n/1000).toFixed(1)+'k':String(n);}
-function parseTopics(s){try{return JSON.parse(s);}catch{return[];}}
-var _toastTimer;
-function toast(msg,type){var el=document.getElementById('toast');el.textContent=msg;el.className='show '+(type||'');clearTimeout(_toastTimer);_toastTimer=setTimeout(function(){el.className='';},3000);}
-
-async function init(){
-  await Promise.all([loadAuthStatus(),loadStats(),loadCategories()]);
-  loadRepos();
-  // Subscribe to SSE to catch any background auto-sync already in progress
-  subscribeBackgroundSync();
-  document.getElementById('search-bar').addEventListener('input',function(e){
-    clearTimeout(st.searchTimer);
-    var q=e.target.value.trim();
-    if(st.aiMode)return;
-    st.searchTimer=setTimeout(function(){q?searchRepos(q):loadRepos();},350);
-  });
-  document.addEventListener('keydown',function(e){
-    if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();document.getElementById('search-bar').focus();}
-  });
-}
-
-async function loadAuthStatus(){
-  var r=await fetch('/api/auth/status').then(function(r){return r.json();});
-  st.authenticated=r.authenticated;st.hasClientId=r.has_client_id;
-  var btn=document.getElementById('btn-auth');
-  if(r.authenticated){btn.textContent='Logout';btn.className='danger';btn.onclick=confirmLogout;}
-  else{btn.textContent='Login';btn.className='';btn.onclick=openLoginDrawer;}
-}
-
-function confirmLogout(){
-  if(!confirm('Log out and remove stored token?'))return;
-  fetch('/api/auth/logout',{method:'POST'}).then(function(){
-    st.authenticated=false;loadAuthStatus();toast('Logged out','ok');
-  });
-}
-
-function openLoginDrawer(){openDrawer('Login with GitHub',buildLoginPanel());}
-
-function buildLoginPanel(){
-  var div=document.createElement('div');
-  if(!st.hasClientId){
-    div.innerHTML='<p style="color:var(--muted);margin-bottom:14px;font-size:13px">Enter your GitHub OAuth App Client ID. Create one at <a href="https://github.com/settings/developers" target="_blank">GitHub Settings</a>.</p>'+
-      '<div class="form-group"><label>GitHub OAuth Client ID</label><input id="login-client-id" placeholder="Ov23..."/>'+
-      '<p class="hint">Uses Device Flow - no client secret needed.</p></div>'+
-      '<button class="primary" onclick="saveClientId()">Save &amp; Continue</button>';
-  }else{
-    div.innerHTML=
-      '<div id="login-step-start" class="step active">'+
-      '<p style="color:var(--muted);margin-bottom:16px;font-size:13px">Click below to start GitHub Device Flow authentication.</p>'+
-      '<button class="primary" onclick="startDeviceFlow()">Start authentication</button></div>'+
-      '<div id="login-step-code" class="step">'+
-      '<p style="color:var(--muted);margin-bottom:12px;font-size:13px">Go to <a id="verify-link" href="" target="_blank"></a> and enter this code:</p>'+
-      '<div class="login-code" id="login-user-code">&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;</div>'+
-      '<p style="color:var(--muted);margin-top:12px;font-size:13px;text-align:center"><span class="spin">&#8987;</span> Waiting for authorization&#8230;</p></div>'+
-      '<div id="login-step-done" class="step">'+
-      '<p style="color:var(--green);font-size:16px;text-align:center;margin-top:24px">&#10003; Authenticated!</p>'+
-      '<div style="text-align:center;margin-top:16px"><button class="primary" onclick="closeDrawer()">Close</button></div></div>';
-  }
-  return div;
-}
-
-async function saveClientId(){
-  var id=document.getElementById('login-client-id').value.trim();
-  if(!id)return;
-  await fetch('/api/auth/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:id})});
-  st.hasClientId=true;await loadAuthStatus();openDrawer('Login with GitHub',buildLoginPanel());
-}
-
-async function startDeviceFlow(){
-  var r=await fetch('/api/auth/start',{method:'POST'});
-  if(!r.ok){toast(await r.text(),'err');return;}
-  var data=await r.json();
-  st.deviceCode=data.device_code;
-  document.getElementById('login-user-code').textContent=data.user_code;
-  var lnk=document.getElementById('verify-link');lnk.href=data.verification_uri;lnk.textContent=data.verification_uri;
-  setStep('login-step-code');
-  var interval=(data.interval||5)*1000;
-  st.pollTimer=setInterval(pollAuth,interval);
-}
-
-async function pollAuth(){
-  var r=await fetch('/api/auth/poll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_code:st.deviceCode})});
-  if(!r.ok)return;
-  var data=await r.json();
-  if(data.status==='authenticated'){
-    clearInterval(st.pollTimer);st.authenticated=true;setStep('login-step-done');loadAuthStatus();toast('Authenticated!','ok');
-  }
-}
-
-function setStep(id){
-  document.querySelectorAll('#drawer-body .step').forEach(function(s){s.classList.remove('active');});
-  var el=document.getElementById(id);if(el)el.classList.add('active');
-}
-
-async function loadStats(){
-  var s=await fetch('/api/stats').then(function(r){return r.json();});
-  document.getElementById('stat-repos').textContent=s.total_repos+' repos';
-  document.getElementById('stat-cats').textContent=s.total_categories+' categories';
-  document.getElementById('stat-sync').textContent=s.last_sync?'\uD83D\uDD04 '+s.last_sync:'\uD83D\uDD04 Never synced';
-  document.getElementById('count-all').textContent=s.total_repos;
-}
-
-var _allCats=[];
-var _collapsed={lang:true,topic:true};
-
-async function loadCategories(){
-  _allCats=await fetch('/api/categories').then(function(r){return r.json();});
-  renderCategories('');
-}
-
-function renderCategories(q){
-  var lq=q.toLowerCase();
-  var lang=_allCats.filter(function(c){return c.category_type==='language'&&(lq===''||c.name.toLowerCase().includes(lq));});
-  var topic=_allCats.filter(function(c){return c.category_type==='topic'&&(lq===''||c.name.toLowerCase().includes(lq));});
-  var langHeader=document.getElementById('cat-lang-header');
-  var topicHeader=document.getElementById('cat-topic-header');
-  if(lang.length){
-    langHeader.style.display='';
-    var collapsed=_collapsed.lang&&lq==='';
-    document.getElementById('cat-lang').style.display=collapsed?'none':'';
-    document.getElementById('lang-chevron').textContent=collapsed?'\u25B6':'\u25BC';
-    document.getElementById('cat-lang').innerHTML=lang.map(function(c){
-      return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+(c.count||'')+'</span></div>';
-    }).join('');
-  } else { langHeader.style.display='none'; document.getElementById('cat-lang').innerHTML=''; }
-  if(topic.length){
-    topicHeader.style.display='';
-    var tcollapsed=_collapsed.topic&&lq==='';
-    document.getElementById('cat-topic').style.display=tcollapsed?'none':'';
-    document.getElementById('topic-chevron').textContent=tcollapsed?'\u25B6':'\u25BC';
-    document.getElementById('cat-topic').innerHTML=topic.map(function(c){
-      return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+(c.count||'')+'</span></div>';
-    }).join('');
-  } else { topicHeader.style.display='none'; document.getElementById('cat-topic').innerHTML=''; }
-}
-
-function filterCategories(q){
-  renderCategories(q);
-}
-
-function toggleSection(name){
-  _collapsed[name]=!_collapsed[name];
-  var q=document.getElementById('cat-filter').value||'';
-  renderCategories(q);
-}
-
-function selectCat(id,el){
-  st.activeCatId=id;st.aiMode=false;
-  document.getElementById('search-bar').value='';
-  document.querySelectorAll('.cat-item').forEach(function(e){e.classList.remove('active');});
-  el.classList.add('active');loadRepos();
-}
-
-async function loadRepos(){
-  st.aiMode=false;
-  setTitle(st.activeCatId?'':"All Stars");
-  var url=st.activeCatId?'/api/repos?category_id='+st.activeCatId:'/api/repos';
-  var repos=await fetch(url).then(function(r){return r.json();});
-  renderRepos(repos);
-}
-
-async function searchRepos(q){
-  var repos=await fetch('/api/search?q='+encodeURIComponent(q)).then(function(r){return r.json();});
-  setTitle('Results for "'+q+'"');renderRepos(repos);
-}
-
-function renderRepos(repos){
-  var grid=document.getElementById('repo-grid');
-  var empty=document.getElementById('empty');
-  document.getElementById('loading').style.display='none';
-  if(!repos||repos.length===0){
-    grid.style.display='none';empty.style.display='';
-    document.getElementById('empty-msg').textContent='No repositories found.';return;
-  }
-  empty.style.display='none';grid.style.display='';
-  grid.innerHTML=repos.map(function(r){
-    var topics=parseTopics(r.topics||'[]').slice(0,3).map(function(t){return '<span class="badge" style="font-size:10px">'+esc(t)+'</span>';}).join('');
-    return '<div class="repo-card">'+
-      '<div class="name"><a href="'+esc(r.url)+'" target="_blank">'+esc(r.full_name)+'</a></div>'+
-      (r.description?'<div class="desc">'+esc(r.description)+'</div>':'')+
-      '<div class="meta">'+
-      (r.language?'<span class="lang">&#9899; '+esc(r.language)+'</span>':'')+
-      '<span class="stars">&#9733; '+fmtStars(r.stars_count)+'</span>'+
-      (topics?'<span>'+topics+'</span>':'')+
-      '</div></div>';
-  }).join('');
-}
-
-function setTitle(t){
-  var el=document.getElementById('content-title');
-  el.textContent=t;el.style.display=t?'':'none';
-}
-
-document.getElementById('btn-sync').onclick=openSyncDrawer;
-function openSyncDrawer(){
-  var div=document.createElement('div');
-  div.innerHTML='<p style="color:var(--muted);font-size:13px;margin-bottom:12px">Fetch all GitHub starred repos and update the local database.</p>'+
-    (!st.authenticated?'<p style="color:var(--yellow);margin-bottom:12px;font-size:13px">&#9888; You need to login first.</p>':'')+
-    '<button class="primary" id="btn-start-sync" '+ (!st.authenticated?'disabled':'')+' onclick="startSync()">Start Sync</button>'+
-    '<div id="sync-log" class="sync-log" style="margin-top:14px;display:none"></div>';
-  openDrawer('Sync Repositories',div);
-  // Show any buffered log from current/last sync
-  subscribeDrawerSync();
-}
-
-// Subscribe to the background SSE stream and show progress in the drawer log if open.
-function subscribeDrawerSync(){
-  if(st.syncSource){st.syncSource.close();st.syncSource=null;}
-  st.syncSource=new EventSource('/api/sync');
-  st.syncSource.onmessage=function(e){
-    try{
-      var d=JSON.parse(e.data);
-      var log=document.getElementById('sync-log');
-      if(log){
-        log.style.display='flex';
-        var el=document.createElement('div');
-        el.className='sle '+(d.type==='done'?'log-done':d.type==='error'?'log-error':'log-info');
-        el.textContent=d.msg;log.appendChild(el);log.scrollTop=log.scrollHeight;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>My GitHub Stars</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --bg2: #161b22;
+        --bg3: #21262d;
+        --border: #30363d;
+        --text: #c9d1d9;
+        --muted: #8b949e;
+        --accent: #58a6ff;
+        --green: #3fb950;
+        --yellow: #e3b341;
+        --purple: #bc8cff;
+        --red: #f85149;
       }
-      if(d.type==='done'||d.type==='error'){
-        st.syncSource.close();st.syncSource=null;
-        loadStats();loadCategories();loadRepos();
-        setSyncIndicator(false);
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
-    }catch(ex){}
-  };
-  st.syncSource.onerror=function(){
-    st.syncSource.close();st.syncSource=null;
-    setSyncIndicator(false);
-  };
-}
-
-// Silent SSE subscription for background auto-sync (no drawer needed).
-function subscribeBackgroundSync(){
-  if(st.syncSource)return; // already subscribed
-  var evs=new EventSource('/api/sync');
-  evs.onmessage=function(e){
-    try{
-      var d=JSON.parse(e.data);
-      setSyncIndicator(true);
-      if(d.type==='done'){
-        evs.close();setSyncIndicator(false);
-        loadStats();loadCategories();loadRepos();
-        toast('\u2713 Auto-sync complete','ok');
-      } else if(d.type==='error'){
-        evs.close();setSyncIndicator(false);
-        toast('Auto-sync error: '+d.msg,'err');
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
-    }catch(ex){}
-  };
-  evs.onerror=function(){evs.close();setSyncIndicator(false);};
-  // Keep reference so openSyncDrawer can close it and re-subscribe with log view
-  st.bgSyncSource=evs;
-}
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      button {
+        cursor: pointer;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 5px 12px;
+        font-size: 13px;
+        background: var(--bg3);
+        color: var(--text);
+        transition: background 0.15s;
+      }
+      button:hover {
+        background: var(--bg2);
+        border-color: var(--accent);
+      }
+      button.primary {
+        background: var(--accent);
+        color: #0d1117;
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      button.primary:hover {
+        background: #79c0ff;
+      }
+      button.danger {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      input,
+      select,
+      textarea {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 6px 10px;
+        font-size: 13px;
+        outline: none;
+        width: 100%;
+      }
+      input:focus,
+      select:focus {
+        border-color: var(--accent);
+      }
+      label {
+        display: block;
+        color: var(--muted);
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 2px 10px;
+        font-size: 12px;
+      }
+      #header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        background: var(--bg2);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      #header .logo {
+        font-size: 18px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      #header .stats {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      #search-bar {
+        flex: 1;
+        max-width: 360px;
+      }
+      #header .actions {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+      }
+      #main {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+      #sidebar {
+        width: 200px;
+        flex-shrink: 0;
+        background: var(--bg2);
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 8px 0;
+      }
+      .sidebar-section {
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-top: 4px;
+      }
+      .collapsible {
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+      }
+      .collapsible:hover {
+        color: var(--text);
+      }
+      .cat-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 16px;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      .cat-item:hover {
+        background: var(--bg3);
+      }
+      .cat-item.active {
+        background: var(--bg3);
+        color: var(--accent);
+      }
+      .cat-item .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .cat-item .count {
+        font-size: 11px;
+        color: var(--muted);
+        flex-shrink: 0;
+        margin-left: 4px;
+      }
+      #content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+      }
+      #content-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: var(--muted);
+      }
+      #repo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 12px;
+      }
+      .repo-card {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        transition: border-color 0.15s;
+      }
+      .repo-card:hover {
+        border-color: var(--accent);
+      }
+      .repo-card .name {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .repo-card .desc {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+        flex: 1;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      .repo-card .meta {
+        display: flex;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .repo-card .lang {
+        color: var(--purple);
+      }
+      .repo-card .stars {
+        color: var(--yellow);
+      }
+      #empty {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--muted);
+      }
+      #empty .icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+      }
+      #drawer-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 50;
+      }
+      #drawer-overlay.open {
+        display: block;
+      }
+      #drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 420px;
+        background: var(--bg2);
+        border-left: 1px solid var(--border);
+        z-index: 51;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transform: translateX(100%);
+        transition: transform 0.25s;
+      }
+      #drawer.open {
+        transform: translateX(0);
+      }
+      #drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      #drawer-title {
+        font-size: 16px;
+        font-weight: 600;
+      }
+      #drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px;
+      }
+      .form-group {
+        margin-bottom: 14px;
+      }
+      .hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 14px 0;
+      }
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+      }
+      .toggle {
+        position: relative;
+        width: 34px;
+        height: 18px;
+      }
+      .toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        inset: 0;
+        background: var(--bg3);
+        border-radius: 18px;
+        transition: background 0.2s;
+        border: 1px solid var(--border);
+      }
+      .slider::before {
+        content: '';
+        position: absolute;
+        height: 12px;
+        width: 12px;
+        left: 2px;
+        bottom: 2px;
+        background: var(--muted);
+        border-radius: 50%;
+        transition:
+          transform 0.2s,
+          background 0.2s;
+      }
+      input:checked + .slider {
+        background: var(--accent);
+      }
+      input:checked + .slider::before {
+        transform: translateX(16px);
+        background: #fff;
+      }
+      .sync-log {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px;
+        font-family: monospace;
+        font-size: 12px;
+        height: 320px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .sle {
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .log-done {
+        color: var(--green);
+      }
+      .log-error {
+        color: var(--red);
+      }
+      .log-info {
+        color: var(--muted);
+      }
+      .login-code {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 4px;
+        color: var(--accent);
+        text-align: center;
+        padding: 16px;
+        background: var(--bg3);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+      .step {
+        display: none;
+      }
+      .step.active {
+        display: block;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .spin {
+        display: inline-block;
+        animation: spin 0.8s linear infinite;
+      }
+      #toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(60px);
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-size: 13px;
+        z-index: 100;
+        transition:
+          transform 0.3s,
+          opacity 0.3s;
+        opacity: 0;
+      }
+      #toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+      #toast.ok {
+        border-color: var(--green);
+        color: var(--green);
+      }
+      #toast.err {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      #loading {
+        color: var(--muted);
+        padding: 40px;
+        text-align: center;
+      }
+      @media (max-width: 600px) {
+        #sidebar {
+          display: none;
+        }
+        #drawer {
+          width: 100%;
+        }
+        #repo-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="header">
+      <span class="logo">&#11088; My GitHub Stars</span>
+      <div class="stats">
+        <span class="badge" id="stat-repos">&#8212; repos</span>
+        <span class="badge" id="stat-cats">&#8212; categories</span>
+        <span class="badge" id="stat-sync"></span>
+      </div>
+      <input
+        id="search-bar"
+        type="search"
+        placeholder="Search repos&#8230; (Ctrl+K)"
+        autocomplete="off"
+      />
+      <div class="actions">
+        <button id="btn-ai" title="AI Search">&#10022; AI</button>
+        <button id="btn-sync" title="Sync repos">&#8635; Sync</button>
+        <button id="btn-settings" title="Settings">&#9881; Settings</button>
+        <button id="btn-auth">Login</button>
+      </div>
+    </div>
+    <div id="main">
+      <div id="sidebar">
+        <div style="padding: 8px">
+          <input
+            id="cat-filter"
+            type="search"
+            placeholder="Filter categories…"
+            oninput="filterCategories(this.value)"
+            autocomplete="off"
+            style="font-size: 12px; padding: 5px 8px"
+          />
+        </div>
+        <div class="sidebar-section">Browse</div>
+        <div
+          class="cat-item active"
+          data-id=""
+          id="cat-all"
+          onclick="selectCat(null, this)"
+        >
+          <span class="name">All Stars</span>
+          <span class="count" id="count-all"></span>
+        </div>
+        <div
+          id="cat-lang-header"
+          class="sidebar-section collapsible"
+          style="display: none"
+          onclick="toggleSection('lang')"
+        >
+          <span>Languages</span><span id="lang-chevron">&#x25B6;</span>
+        </div>
+        <div id="cat-lang"></div>
+        <div
+          id="cat-topic-header"
+          class="sidebar-section collapsible"
+          style="display: none"
+          onclick="toggleSection('topic')"
+        >
+          <span>Topics</span><span id="topic-chevron">&#x25B6;</span>
+        </div>
+        <div id="cat-topic"></div>
+      </div>
+      <div id="content">
+        <div id="loading">Loading&#8230;</div>
+        <div id="content-title" style="display: none"></div>
+        <div id="repo-grid" style="display: none"></div>
+        <div id="empty" style="display: none">
+          <div class="icon">&#128302;</div>
+          <div id="empty-msg">No repositories found.</div>
+        </div>
+      </div>
+    </div>
+    <div id="drawer-overlay" onclick="closeDrawer()"></div>
+    <div id="drawer">
+      <div id="drawer-header">
+        <span id="drawer-title">Panel</span>
+        <button
+          onclick="closeDrawer()"
+          style="padding: 4px 8px; font-size: 16px"
+        >
+          &#10005;
+        </button>
+      </div>
+      <div id="drawer-body"></div>
+    </div>
+    <div id="toast"></div>
+    <script>
+      var st = {
+        authenticated: false,
+        hasClientId: false,
+        aiMode: false,
+        activeCatId: null,
+        searchTimer: null,
+        syncSource: null,
+        bgSyncSource: null,
+        deviceCode: null,
+        pollTimer: null,
+      };
 
-async function startSync(){
-  // Close background listener if any, then subscribe with drawer log
-  if(st.bgSyncSource){st.bgSyncSource.close();st.bgSyncSource=null;}
-  subscribeDrawerSync();
-  // Trigger sync via POST (409 = already running, which is fine — SSE will show progress)
-  var r=await fetch('/api/sync',{method:'POST'});
-  if(r.status===409){toast('Sync already in progress','ok');return;}
-  if(!r.ok){var t=await r.text();toast(t,'err');}
-  else{setSyncIndicator(true);}
-  var btn=document.getElementById('btn-start-sync');
-  if(btn)btn.disabled=true;
-}
+      function esc(s) {
+        if (!s) return '';
+        return s
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+      function fmtStars(n) {
+        return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+      }
+      function parseTopics(s) {
+        try {
+          return JSON.parse(s);
+        } catch {
+          return [];
+        }
+      }
+      var _toastTimer;
+      function toast(msg, type) {
+        var el = document.getElementById('toast');
+        el.textContent = msg;
+        el.className = 'show ' + (type || '');
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(function () {
+          el.className = '';
+        }, 3000);
+      }
 
-function setSyncIndicator(on){
-  var btn=document.getElementById('btn-sync');
-  if(btn)btn.style.color=on?'var(--yellow)':'';
-}
+      async function init() {
+        await Promise.all([loadAuthStatus(), loadStats(), loadCategories()]);
+        loadRepos();
+        // Subscribe to SSE to catch any background auto-sync already in progress
+        subscribeBackgroundSync();
+        document
+          .getElementById('search-bar')
+          .addEventListener('input', function (e) {
+            clearTimeout(st.searchTimer);
+            var q = e.target.value.trim();
+            if (st.aiMode) return;
+            st.searchTimer = setTimeout(function () {
+              q ? searchRepos(q) : loadRepos();
+            }, 350);
+          });
+        document.addEventListener('keydown', function (e) {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            document.getElementById('search-bar').focus();
+          }
+        });
+      }
 
-document.getElementById('btn-settings').onclick=openSettingsDrawer;
-async function openSettingsDrawer(){
-  var s=await fetch('/api/settings').then(function(r){return r.json();});
-  var div=document.createElement('div');
-  var modelOpts=s.known_models.map(function(m){
-    return '<option value="'+esc(m.id)+'" '+(( s.openai_model||'')==m.id?'selected':'')+'>'+esc(m.id)+' &mdash; '+esc(m.desc)+'</option>';
-  }).join('');
-  div.innerHTML=
-    '<div class="form-group"><label>GitHub OAuth Client ID</label>'+
-    '<input id="set-client-id" value="'+esc(s.client_id||'')+'"/>'+
-    '<p class="hint">Required for Login / Device Flow.</p></div>'+
-    '<div class="toggle-row"><span>Auto-update on startup</span>'+
-    '<label class="toggle"><input type="checkbox" id="set-auto-update" '+(s.auto_update?'checked':'')+'><span class="slider"></span></label></div>'+
-    '<hr class="divider"/>'+
-    '<div class="sidebar-section" style="margin:0 0 10px;padding:0">AI Search</div>'+
-    '<div class="toggle-row" style="margin-bottom:10px"><span>Use GitHub Copilot (free)</span>'+
-    '<label class="toggle"><input type="checkbox" id="set-use-copilot" '+(s.use_copilot?'checked':'')+'><span class="slider"></span></label></div>'+
-    '<div id="set-openai-section" style="'+(s.use_copilot?'display:none':'')+'">'+
-    '<div class="form-group"><label>OpenAI API Key '+(s.has_openai_key?'<span style="color:var(--green)">&#9679;</span>':'')+'</label>'+
-    '<input id="set-openai-key" type="password" placeholder="sk-&hellip; (leave blank to keep existing)"/></div>'+
-    '<div class="form-group"><label>Base URL (optional)</label>'+
-    '<input id="set-openai-url" value="'+esc(s.openai_base_url||'')+'"/>'+
-    '<p class="hint">Default: https://api.openai.com/v1</p></div></div>'+
-    '<div id="set-copilot-section" style="'+(s.use_copilot?'':' display:none')+'">'+
-    '<div class="form-group"><label>GitHub PAT for Copilot '+(s.has_copilot_token?'<span style="color:var(--green)">&#9679;</span>':'')+'</label>'+
-    '<input id="set-copilot-token" type="password" placeholder="ghp_&hellip; (leave blank to use login token)"/>'+
-    '<p class="hint">If empty, uses your GitHub login token.</p></div></div>'+
-    '<div class="form-group"><label>Model</label><select id="set-model">'+modelOpts+'</select></div>'+
-    '<div style="display:flex;gap:8px;margin-top:8px"><button class="primary" onclick="saveSettings()">Save</button>'+
-    '<button onclick="closeDrawer()">Cancel</button></div>';
-  openDrawer('Settings',div);
-  document.getElementById('set-use-copilot').addEventListener('change',function(e){
-    document.getElementById('set-openai-section').style.display=e.target.checked?'none':'';
-    document.getElementById('set-copilot-section').style.display=e.target.checked?'':' display:none';
-  });
-}
+      async function loadAuthStatus() {
+        var r = await fetch('/api/auth/status').then(function (r) {
+          return r.json();
+        });
+        st.authenticated = r.authenticated;
+        st.hasClientId = r.has_client_id;
+        var btn = document.getElementById('btn-auth');
+        if (r.authenticated) {
+          btn.textContent = 'Logout';
+          btn.className = 'danger';
+          btn.onclick = confirmLogout;
+        } else {
+          btn.textContent = 'Login';
+          btn.className = '';
+          btn.onclick = openLoginDrawer;
+        }
+      }
 
-async function saveSettings(){
-  var body={
-    client_id:document.getElementById('set-client-id').value.trim(),
-    auto_update:document.getElementById('set-auto-update').checked,
-    openai_api_key:(document.getElementById('set-openai-key')||{}).value||'',
-    openai_base_url:(document.getElementById('set-openai-url')||{}).value||'',
-    use_copilot:document.getElementById('set-use-copilot').checked,
-    copilot_github_token:(document.getElementById('set-copilot-token')||{}).value||'',
-    openai_model:(document.getElementById('set-model')||{}).value||'',
-  };
-  var r=await fetch('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(r.ok){toast('Settings saved','ok');closeDrawer();loadAuthStatus();}
-  else toast(await r.text(),'err');
-}
+      function confirmLogout() {
+        if (!confirm('Log out and remove stored token?')) return;
+        fetch('/api/auth/logout', { method: 'POST' }).then(function () {
+          st.authenticated = false;
+          loadAuthStatus();
+          toast('Logged out', 'ok');
+        });
+      }
 
-document.getElementById('btn-ai').onclick=openAiMode;
-function openAiMode(){
-  st.aiMode=true;
-  document.querySelectorAll('.cat-item').forEach(function(e){e.classList.remove('active');});
-  setTitle('&#10022; AI Search');
-  document.getElementById('loading').style.display='none';
-  document.getElementById('repo-grid').style.display='none';
-  var empty=document.getElementById('empty');empty.style.display='';
-  document.getElementById('empty-msg').innerHTML=
-    '<div style="margin-bottom:12px">Describe what you&#8217;re looking for in natural language.</div>'+
-    '<div style="display:flex;gap:8px;max-width:420px;margin:0 auto">'+
-    '<input id="ai-query" placeholder="e.g. fast async HTTP libraries" style="flex:1"/>'+
-    '<button class="primary" onclick="runAiSearch()">Search</button></div>'+
-    '<div id="ai-status" style="margin-top:12px;color:var(--muted);font-size:12px"></div>';
-  setTimeout(function(){
-    var inp=document.getElementById('ai-query');
-    if(inp){inp.focus();inp.addEventListener('keydown',function(e){if(e.isComposing||e.keyCode===229)return;if(e.key==='Enter')runAiSearch();});}
-  },50);
-}
+      function openLoginDrawer() {
+        openDrawer('Login with GitHub', buildLoginPanel());
+      }
 
-async function runAiSearch(){
-  var q=(document.getElementById('ai-query')||{}).value;
-  if(!q||!q.trim())return;q=q.trim();
-  document.getElementById('ai-status').innerHTML='<span class="spin">&#10227;</span> Searching&hellip;';
-  var r=await fetch('/api/ai-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});
-  if(!r.ok){document.getElementById('ai-status').textContent=await r.text();return;}
-  var repos=await r.json();
-  document.getElementById('ai-status').textContent='';
-  setTitle('&#10022; AI: "'+q+'"');
-  renderRepos(repos);
-}
+      function buildLoginPanel() {
+        var div = document.createElement('div');
+        if (!st.hasClientId) {
+          div.innerHTML =
+            '<p style="color:var(--muted);margin-bottom:14px;font-size:13px">Enter your GitHub OAuth App Client ID. Create one at <a href="https://github.com/settings/developers" target="_blank">GitHub Settings</a>.</p>' +
+            '<div class="form-group"><label>GitHub OAuth Client ID</label><input id="login-client-id" placeholder="Ov23..."/>' +
+            '<p class="hint">Uses Device Flow - no client secret needed.</p></div>' +
+            '<button class="primary" onclick="saveClientId()">Save &amp; Continue</button>';
+        } else {
+          div.innerHTML =
+            '<div id="login-step-start" class="step active">' +
+            '<p style="color:var(--muted);margin-bottom:16px;font-size:13px">Click below to start GitHub Device Flow authentication.</p>' +
+            '<button class="primary" onclick="startDeviceFlow()">Start authentication</button></div>' +
+            '<div id="login-step-code" class="step">' +
+            '<p style="color:var(--muted);margin-bottom:12px;font-size:13px">Go to <a id="verify-link" href="" target="_blank"></a> and enter this code:</p>' +
+            '<div class="login-code" id="login-user-code">&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;</div>' +
+            '<p style="color:var(--muted);margin-top:12px;font-size:13px;text-align:center"><span class="spin">&#8987;</span> Waiting for authorization&#8230;</p></div>' +
+            '<div id="login-step-done" class="step">' +
+            '<p style="color:var(--green);font-size:16px;text-align:center;margin-top:24px">&#10003; Authenticated!</p>' +
+            '<div style="text-align:center;margin-top:16px"><button class="primary" onclick="closeDrawer()">Close</button></div></div>';
+        }
+        return div;
+      }
 
-function openDrawer(title,content){
-  document.getElementById('drawer-title').textContent=title;
-  var body=document.getElementById('drawer-body');body.innerHTML='';body.appendChild(content);
-  document.getElementById('drawer-overlay').classList.add('open');
-  document.getElementById('drawer').classList.add('open');
-}
-function closeDrawer(){
-  document.getElementById('drawer-overlay').classList.remove('open');
-  document.getElementById('drawer').classList.remove('open');
-}
+      async function saveClientId() {
+        var id = document.getElementById('login-client-id').value.trim();
+        if (!id) return;
+        await fetch('/api/auth/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id: id }),
+        });
+        st.hasClientId = true;
+        await loadAuthStatus();
+        openDrawer('Login with GitHub', buildLoginPanel());
+      }
 
-init();
-</script>
-</body>
+      async function startDeviceFlow() {
+        var r = await fetch('/api/auth/start', { method: 'POST' });
+        if (!r.ok) {
+          toast(await r.text(), 'err');
+          return;
+        }
+        var data = await r.json();
+        st.deviceCode = data.device_code;
+        document.getElementById('login-user-code').textContent = data.user_code;
+        var lnk = document.getElementById('verify-link');
+        lnk.href = data.verification_uri;
+        lnk.textContent = data.verification_uri;
+        setStep('login-step-code');
+        var interval = (data.interval || 5) * 1000;
+        st.pollTimer = setInterval(pollAuth, interval);
+      }
+
+      async function pollAuth() {
+        var r = await fetch('/api/auth/poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ device_code: st.deviceCode }),
+        });
+        if (!r.ok) return;
+        var data = await r.json();
+        if (data.status === 'authenticated') {
+          clearInterval(st.pollTimer);
+          st.authenticated = true;
+          setStep('login-step-done');
+          loadAuthStatus();
+          toast('Authenticated!', 'ok');
+        }
+      }
+
+      function setStep(id) {
+        document.querySelectorAll('#drawer-body .step').forEach(function (s) {
+          s.classList.remove('active');
+        });
+        var el = document.getElementById(id);
+        if (el) el.classList.add('active');
+      }
+
+      async function loadStats() {
+        var s = await fetch('/api/stats').then(function (r) {
+          return r.json();
+        });
+        document.getElementById('stat-repos').textContent =
+          s.total_repos + ' repos';
+        document.getElementById('stat-cats').textContent =
+          s.total_categories + ' categories';
+        document.getElementById('stat-sync').textContent = s.last_sync
+          ? '\uD83D\uDD04 ' + s.last_sync
+          : '\uD83D\uDD04 Never synced';
+        document.getElementById('count-all').textContent = s.total_repos;
+      }
+
+      var _allCats = [];
+      var _collapsed = { lang: true, topic: true };
+
+      async function loadCategories() {
+        _allCats = await fetch('/api/categories').then(function (r) {
+          return r.json();
+        });
+        renderCategories('');
+      }
+
+      function renderCategories(q) {
+        var lq = q.toLowerCase();
+        var lang = _allCats.filter(function (c) {
+          return (
+            c.category_type === 'language' &&
+            (lq === '' || c.name.toLowerCase().includes(lq))
+          );
+        });
+        var topic = _allCats.filter(function (c) {
+          return (
+            c.category_type === 'topic' &&
+            (lq === '' || c.name.toLowerCase().includes(lq))
+          );
+        });
+        var langHeader = document.getElementById('cat-lang-header');
+        var topicHeader = document.getElementById('cat-topic-header');
+        if (lang.length) {
+          langHeader.style.display = '';
+          var collapsed = _collapsed.lang && lq === '';
+          document.getElementById('cat-lang').style.display = collapsed
+            ? 'none'
+            : '';
+          document.getElementById('lang-chevron').textContent = collapsed
+            ? '\u25B6'
+            : '\u25BC';
+          document.getElementById('cat-lang').innerHTML = lang
+            .map(function (c) {
+              return (
+                '<div class="cat-item" data-id="' +
+                c.id +
+                '" onclick="selectCat(' +
+                c.id +
+                ',this)"><span class="name">' +
+                esc(c.name) +
+                '</span><span class="count">' +
+                (c.count || '') +
+                '</span></div>'
+              );
+            })
+            .join('');
+        } else {
+          langHeader.style.display = 'none';
+          document.getElementById('cat-lang').innerHTML = '';
+        }
+        if (topic.length) {
+          topicHeader.style.display = '';
+          var tcollapsed = _collapsed.topic && lq === '';
+          document.getElementById('cat-topic').style.display = tcollapsed
+            ? 'none'
+            : '';
+          document.getElementById('topic-chevron').textContent = tcollapsed
+            ? '\u25B6'
+            : '\u25BC';
+          document.getElementById('cat-topic').innerHTML = topic
+            .map(function (c) {
+              return (
+                '<div class="cat-item" data-id="' +
+                c.id +
+                '" onclick="selectCat(' +
+                c.id +
+                ',this)"><span class="name">' +
+                esc(c.name) +
+                '</span><span class="count">' +
+                (c.count || '') +
+                '</span></div>'
+              );
+            })
+            .join('');
+        } else {
+          topicHeader.style.display = 'none';
+          document.getElementById('cat-topic').innerHTML = '';
+        }
+      }
+
+      function filterCategories(q) {
+        renderCategories(q);
+      }
+
+      function toggleSection(name) {
+        _collapsed[name] = !_collapsed[name];
+        var q = document.getElementById('cat-filter').value || '';
+        renderCategories(q);
+      }
+
+      function selectCat(id, el) {
+        st.activeCatId = id;
+        st.aiMode = false;
+        document.getElementById('search-bar').value = '';
+        document.querySelectorAll('.cat-item').forEach(function (e) {
+          e.classList.remove('active');
+        });
+        el.classList.add('active');
+        loadRepos();
+      }
+
+      async function loadRepos() {
+        st.aiMode = false;
+        setTitle(st.activeCatId ? '' : 'All Stars');
+        var url = st.activeCatId
+          ? '/api/repos?category_id=' + st.activeCatId
+          : '/api/repos';
+        var repos = await fetch(url).then(function (r) {
+          return r.json();
+        });
+        renderRepos(repos);
+      }
+
+      async function searchRepos(q) {
+        var repos = await fetch('/api/search?q=' + encodeURIComponent(q)).then(
+          function (r) {
+            return r.json();
+          },
+        );
+        setTitle('Results for "' + q + '"');
+        renderRepos(repos);
+      }
+
+      function renderRepos(repos) {
+        var grid = document.getElementById('repo-grid');
+        var empty = document.getElementById('empty');
+        document.getElementById('loading').style.display = 'none';
+        if (!repos || repos.length === 0) {
+          grid.style.display = 'none';
+          empty.style.display = '';
+          document.getElementById('empty-msg').textContent =
+            'No repositories found.';
+          return;
+        }
+        empty.style.display = 'none';
+        grid.style.display = '';
+        grid.innerHTML = repos
+          .map(function (r) {
+            var topics = parseTopics(r.topics || '[]')
+              .slice(0, 3)
+              .map(function (t) {
+                return (
+                  '<span class="badge" style="font-size:10px">' +
+                  esc(t) +
+                  '</span>'
+                );
+              })
+              .join('');
+            return (
+              '<div class="repo-card">' +
+              '<div class="name"><a href="' +
+              esc(r.url) +
+              '" target="_blank">' +
+              esc(r.full_name) +
+              '</a></div>' +
+              (r.description
+                ? '<div class="desc">' + esc(r.description) + '</div>'
+                : '') +
+              '<div class="meta">' +
+              (r.language
+                ? '<span class="lang">&#9899; ' + esc(r.language) + '</span>'
+                : '') +
+              '<span class="stars">&#9733; ' +
+              fmtStars(r.stars_count) +
+              '</span>' +
+              (topics ? '<span>' + topics + '</span>' : '') +
+              '</div></div>'
+            );
+          })
+          .join('');
+      }
+
+      function setTitle(t) {
+        var el = document.getElementById('content-title');
+        el.textContent = t;
+        el.style.display = t ? '' : 'none';
+      }
+
+      document.getElementById('btn-sync').onclick = openSyncDrawer;
+      function openSyncDrawer() {
+        var div = document.createElement('div');
+        div.innerHTML =
+          '<p style="color:var(--muted);font-size:13px;margin-bottom:12px">Fetch all GitHub starred repos and update the local database.</p>' +
+          (!st.authenticated
+            ? '<p style="color:var(--yellow);margin-bottom:12px;font-size:13px">&#9888; You need to login first.</p>'
+            : '') +
+          '<button class="primary" id="btn-start-sync" ' +
+          (!st.authenticated ? 'disabled' : '') +
+          ' onclick="startSync()">Start Sync</button>' +
+          '<div id="sync-log" class="sync-log" style="margin-top:14px;display:none"></div>';
+        openDrawer('Sync Repositories', div);
+        // Show any buffered log from current/last sync
+        subscribeDrawerSync();
+      }
+
+      // Subscribe to the background SSE stream and show progress in the drawer log if open.
+      function subscribeDrawerSync() {
+        if (st.syncSource) {
+          st.syncSource.close();
+          st.syncSource = null;
+        }
+        st.syncSource = new EventSource('/api/sync');
+        st.syncSource.onmessage = function (e) {
+          try {
+            var d = JSON.parse(e.data);
+            var log = document.getElementById('sync-log');
+            if (log) {
+              log.style.display = 'flex';
+              var el = document.createElement('div');
+              el.className =
+                'sle ' +
+                (d.type === 'done'
+                  ? 'log-done'
+                  : d.type === 'error'
+                    ? 'log-error'
+                    : 'log-info');
+              el.textContent = d.msg;
+              log.appendChild(el);
+              log.scrollTop = log.scrollHeight;
+            }
+            if (d.type === 'done' || d.type === 'error') {
+              st.syncSource.close();
+              st.syncSource = null;
+              loadStats();
+              loadCategories();
+              loadRepos();
+              setSyncIndicator(false);
+            }
+          } catch (ex) {}
+        };
+        st.syncSource.onerror = function () {
+          st.syncSource.close();
+          st.syncSource = null;
+          setSyncIndicator(false);
+        };
+      }
+
+      // Silent SSE subscription for background auto-sync (no drawer needed).
+      function subscribeBackgroundSync() {
+        if (st.syncSource) return; // already subscribed
+        var evs = new EventSource('/api/sync');
+        evs.onmessage = function (e) {
+          try {
+            var d = JSON.parse(e.data);
+            setSyncIndicator(true);
+            if (d.type === 'done') {
+              evs.close();
+              setSyncIndicator(false);
+              loadStats();
+              loadCategories();
+              loadRepos();
+              toast('\u2713 Auto-sync complete', 'ok');
+            } else if (d.type === 'error') {
+              evs.close();
+              setSyncIndicator(false);
+              toast('Auto-sync error: ' + d.msg, 'err');
+            }
+          } catch (ex) {}
+        };
+        evs.onerror = function () {
+          evs.close();
+          setSyncIndicator(false);
+        };
+        // Keep reference so openSyncDrawer can close it and re-subscribe with log view
+        st.bgSyncSource = evs;
+      }
+
+      async function startSync() {
+        // Close background listener if any, then subscribe with drawer log
+        if (st.bgSyncSource) {
+          st.bgSyncSource.close();
+          st.bgSyncSource = null;
+        }
+        subscribeDrawerSync();
+        // Trigger sync via POST (409 = already running, which is fine — SSE will show progress)
+        var r = await fetch('/api/sync', { method: 'POST' });
+        if (r.status === 409) {
+          toast('Sync already in progress', 'ok');
+          return;
+        }
+        if (!r.ok) {
+          var t = await r.text();
+          toast(t, 'err');
+        } else {
+          setSyncIndicator(true);
+        }
+        var btn = document.getElementById('btn-start-sync');
+        if (btn) btn.disabled = true;
+      }
+
+      function setSyncIndicator(on) {
+        var btn = document.getElementById('btn-sync');
+        if (btn) btn.style.color = on ? 'var(--yellow)' : '';
+      }
+
+      document.getElementById('btn-settings').onclick = openSettingsDrawer;
+      async function openSettingsDrawer() {
+        var s = await fetch('/api/settings').then(function (r) {
+          return r.json();
+        });
+        var div = document.createElement('div');
+        var modelOpts = s.known_models
+          .map(function (m) {
+            return (
+              '<option value="' +
+              esc(m.id) +
+              '" ' +
+              ((s.openai_model || '') == m.id ? 'selected' : '') +
+              '>' +
+              esc(m.id) +
+              ' &mdash; ' +
+              esc(m.desc) +
+              '</option>'
+            );
+          })
+          .join('');
+        div.innerHTML =
+          '<div class="form-group"><label>GitHub OAuth Client ID</label>' +
+          '<input id="set-client-id" value="' +
+          esc(s.client_id || '') +
+          '"/>' +
+          '<p class="hint">Required for Login / Device Flow.</p></div>' +
+          '<div class="toggle-row"><span>Auto-update on startup</span>' +
+          '<label class="toggle"><input type="checkbox" id="set-auto-update" ' +
+          (s.auto_update ? 'checked' : '') +
+          '><span class="slider"></span></label></div>' +
+          '<hr class="divider"/>' +
+          '<div class="sidebar-section" style="margin:0 0 10px;padding:0">AI Search</div>' +
+          '<div class="toggle-row" style="margin-bottom:10px"><span>Use GitHub Copilot (free)</span>' +
+          '<label class="toggle"><input type="checkbox" id="set-use-copilot" ' +
+          (s.use_copilot ? 'checked' : '') +
+          '><span class="slider"></span></label></div>' +
+          '<div id="set-openai-section" style="' +
+          (s.use_copilot ? 'display:none' : '') +
+          '">' +
+          '<div class="form-group"><label>OpenAI API Key ' +
+          (s.has_openai_key
+            ? '<span style="color:var(--green)">&#9679;</span>'
+            : '') +
+          '</label>' +
+          '<input id="set-openai-key" type="password" placeholder="sk-&hellip; (leave blank to keep existing)"/></div>' +
+          '<div class="form-group"><label>Base URL (optional)</label>' +
+          '<input id="set-openai-url" value="' +
+          esc(s.openai_base_url || '') +
+          '"/>' +
+          '<p class="hint">Default: https://api.openai.com/v1</p></div></div>' +
+          '<div id="set-copilot-section" style="' +
+          (s.use_copilot ? '' : 'display:none') +
+          '">' +
+          '<div class="form-group"><label>GitHub PAT for Copilot ' +
+          (s.has_copilot_token
+            ? '<span style="color:var(--green)">&#9679;</span>'
+            : '') +
+          '</label>' +
+          '<input id="set-copilot-token" type="password" placeholder="ghp_&hellip; (leave blank to use login token)"/>' +
+          '<p class="hint">If empty, uses your GitHub login token.</p></div></div>' +
+          '<div class="form-group"><label>Model</label><select id="set-model">' +
+          modelOpts +
+          '</select></div>' +
+          '<div style="display:flex;gap:8px;margin-top:8px"><button class="primary" onclick="saveSettings()">Save</button>' +
+          '<button onclick="closeDrawer()">Cancel</button></div>';
+        openDrawer('Settings', div);
+        document
+          .getElementById('set-use-copilot')
+          .addEventListener('change', function (e) {
+            document.getElementById('set-openai-section').style.display = e
+              .target.checked
+              ? 'none'
+              : '';
+            document.getElementById('set-copilot-section').style.display = e
+              .target.checked
+              ? ''
+              : 'none';
+          });
+      }
+
+      async function saveSettings() {
+        var openaiKeyVal =
+          (document.getElementById('set-openai-key') || {}).value || '';
+        var copilotTokenVal =
+          (document.getElementById('set-copilot-token') || {}).value || '';
+        var body = {
+          client_id: document.getElementById('set-client-id').value.trim(),
+          auto_update: document.getElementById('set-auto-update').checked,
+          openai_api_key: openaiKeyVal || undefined,
+          openai_base_url:
+            (document.getElementById('set-openai-url') || {}).value || '',
+          use_copilot: document.getElementById('set-use-copilot').checked,
+          copilot_github_token: copilotTokenVal || undefined,
+          openai_model:
+            (document.getElementById('set-model') || {}).value || '',
+        };
+        var r = await fetch('/api/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (r.ok) {
+          toast('Settings saved', 'ok');
+          closeDrawer();
+          loadAuthStatus();
+        } else toast(await r.text(), 'err');
+      }
+
+      document.getElementById('btn-ai').onclick = openAiMode;
+      function openAiMode() {
+        st.aiMode = true;
+        document.querySelectorAll('.cat-item').forEach(function (e) {
+          e.classList.remove('active');
+        });
+        setTitle('&#10022; AI Search');
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('repo-grid').style.display = 'none';
+        var empty = document.getElementById('empty');
+        empty.style.display = '';
+        document.getElementById('empty-msg').innerHTML =
+          '<div style="margin-bottom:12px">Describe what you&#8217;re looking for in natural language.</div>' +
+          '<div style="display:flex;gap:8px;max-width:420px;margin:0 auto">' +
+          '<input id="ai-query" placeholder="e.g. fast async HTTP libraries" style="flex:1"/>' +
+          '<button class="primary" onclick="runAiSearch()">Search</button></div>' +
+          '<div id="ai-status" style="margin-top:12px;color:var(--muted);font-size:12px"></div>';
+        setTimeout(function () {
+          var inp = document.getElementById('ai-query');
+          if (inp) {
+            inp.focus();
+            inp.addEventListener('keydown', function (e) {
+              if (e.isComposing || e.keyCode === 229) return;
+              if (e.key === 'Enter') runAiSearch();
+            });
+          }
+        }, 50);
+      }
+
+      async function runAiSearch() {
+        var q = (document.getElementById('ai-query') || {}).value;
+        if (!q || !q.trim()) return;
+        q = q.trim();
+        document.getElementById('ai-status').innerHTML =
+          '<span class="spin">&#10227;</span> Searching&hellip;';
+        var r = await fetch('/api/ai-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q }),
+        });
+        if (!r.ok) {
+          document.getElementById('ai-status').textContent = await r.text();
+          return;
+        }
+        var repos = await r.json();
+        document.getElementById('ai-status').textContent = '';
+        setTitle('&#10022; AI: "' + q + '"');
+        renderRepos(repos);
+      }
+
+      function openDrawer(title, content) {
+        document.getElementById('drawer-title').textContent = title;
+        var body = document.getElementById('drawer-body');
+        body.innerHTML = '';
+        body.appendChild(content);
+        document.getElementById('drawer-overlay').classList.add('open');
+        document.getElementById('drawer').classList.add('open');
+      }
+      function closeDrawer() {
+        document.getElementById('drawer-overlay').classList.remove('open');
+        document.getElementById('drawer').classList.remove('open');
+      }
+
+      init();
+    </script>
+  </body>
 </html>
