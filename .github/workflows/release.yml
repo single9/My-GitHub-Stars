@@ -23,53 +23,80 @@ jobs:
           - label: TUI - macOS ARM64
             runner: macos-latest
             target: aarch64-apple-darwin
-            feature_flags: ""
+            feature_flags: ''
             artifact_name: ghstars-tui-macos-arm64
 
           - label: GUI - macOS ARM64
             runner: macos-latest
             target: aarch64-apple-darwin
-            feature_flags: "--features gui --no-default-features"
+            feature_flags: '--features gui --no-default-features'
             artifact_name: ghstars-gui-macos-arm64
 
           # macOS x86_64 (cross-compiled from ARM64)
           - label: TUI - macOS x86_64
             runner: macos-latest
             target: x86_64-apple-darwin
-            feature_flags: ""
+            feature_flags: ''
             artifact_name: ghstars-tui-macos-x86_64
 
           - label: GUI - macOS x86_64
             runner: macos-latest
             target: x86_64-apple-darwin
-            feature_flags: "--features gui --no-default-features"
+            feature_flags: '--features gui --no-default-features'
             artifact_name: ghstars-gui-macos-x86_64
 
           # Linux x86_64
           - label: TUI - Linux x86_64
             runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            feature_flags: ""
+            feature_flags: ''
             artifact_name: ghstars-tui-linux-x86_64
 
           - label: GUI - Linux x86_64
             runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            feature_flags: "--features gui --no-default-features"
+            feature_flags: '--features gui --no-default-features'
             artifact_name: ghstars-gui-linux-x86_64
+
+          # macOS ARM64 Web
+          - label: Web - macOS ARM64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            feature_flags: '--features web --no-default-features'
+            artifact_name: ghstars-web-macos-arm64
+
+          # macOS x86_64 Web
+          - label: Web - macOS x86_64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            feature_flags: '--features web --no-default-features'
+            artifact_name: ghstars-web-macos-x86_64
+
+          # Linux x86_64 Web
+          - label: Web - Linux x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            feature_flags: '--features web --no-default-features'
+            artifact_name: ghstars-web-linux-x86_64
 
           # Windows x86_64
           - label: TUI - Windows x86_64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
-            feature_flags: ""
+            feature_flags: ''
             artifact_name: ghstars-tui-windows-x86_64
 
           - label: GUI - Windows x86_64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
-            feature_flags: "--features gui --no-default-features"
+            feature_flags: '--features gui --no-default-features'
             artifact_name: ghstars-gui-windows-x86_64
+
+          - label: Web - Windows x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            feature_flags: '--features web --no-default-features'
+            artifact_name: ghstars-web-windows-x86_64
 
     steps:
       - uses: actions/checkout@v4
