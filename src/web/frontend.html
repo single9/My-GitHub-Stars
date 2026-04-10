@@ -227,7 +227,7 @@ async function loadStats(){
   var s=await fetch('/api/stats').then(function(r){return r.json();});
   document.getElementById('stat-repos').textContent=s.total_repos+' repos';
   document.getElementById('stat-cats').textContent=s.total_categories+' categories';
-  document.getElementById('stat-sync').textContent=s.last_sync?'&#128260; '+s.last_sync:'&#128260; Never synced';
+  document.getElementById('stat-sync').textContent=s.last_sync?'\uD83D\uDD04 '+s.last_sync:'\uD83D\uDD04 Never synced';
   document.getElementById('count-all').textContent=s.total_repos;
 }
 
