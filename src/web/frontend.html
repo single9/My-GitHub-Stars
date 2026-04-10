@@ -233,18 +233,18 @@ async function loadStats(){
 
 async function loadCategories(){
   var cats=await fetch('/api/categories').then(function(r){return r.json();});
-  var lang=cats.filter(function(c){return c.kind==='language';});
-  var topic=cats.filter(function(c){return c.kind==='topic';});
+  var lang=cats.filter(function(c){return c.category_type==='language';});
+  var topic=cats.filter(function(c){return c.category_type==='topic';});
   if(lang.length){
     document.getElementById('cat-lang-header').style.display='';
     document.getElementById('cat-lang').innerHTML=lang.map(function(c){
-      return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+( c.repo_count||'')+ '</span></div>';
+      return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+( c.count||'')+ '</span></div>';
     }).join('');
   }
   if(topic.length){
     document.getElementById('cat-topic-header').style.display='';
     document.getElementById('cat-topic').innerHTML=topic.map(function(c){
-      return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+(c.repo_count||'')+'</span></div>';
+      return '<div class="cat-item" data-id="'+c.id+'" onclick="selectCat('+c.id+',this)"><span class="name">'+esc(c.name)+'</span><span class="count">'+(c.count||'')+'</span></div>';
     }).join('');
   }
 }
@@ -336,7 +336,7 @@ async function openSettingsDrawer(){
   var s=await fetch('/api/settings').then(function(r){return r.json();});
   var div=document.createElement('div');
   var modelOpts=s.known_models.map(function(m){
-    return '<option value="'+esc(m.id)+'" '+(( s.openai_model||'')==m.id?'selected':'')+'>'+esc(m.id)+' â '+esc(m.desc)+'</option>';
+    return '<option value="'+esc(m.id)+'" '+(( s.openai_model||'')==m.id?'selected':'')+'>'+esc(m.id)+' &mdash; '+esc(m.desc)+'</option>';
   }).join('');
   div.innerHTML=
     '<div class="form-group"><label>GitHub OAuth Client ID</label>'+
@@ -349,14 +349,14 @@ async function openSettingsDrawer(){
     '<div class="toggle-row" style="margin-bottom:10px"><span>Use GitHub Copilot (free)</span>'+
     '<label class="toggle"><input type="checkbox" id="set-use-copilot" '+(s.use_copilot?'checked':'')+'><span class="slider"></span></label></div>'+
     '<div id="set-openai-section" style="'+(s.use_copilot?'display:none':'')+'">'+
-    '<div class="form-group"><label>OpenAI API Key '+(s.has_openai_key?'<span style="color:var(--green)">â</span>':'')+'</label>'+
-    '<input id="set-openai-key" type="password" placeholder="sk-â¦ (leave blank to keep existing)"/></div>'+
+    '<div class="form-group"><label>OpenAI API Key '+(s.has_openai_key?'<span style="color:var(--green)">&#9679;</span>':'')+'</label>'+
+    '<input id="set-openai-key" type="password" placeholder="sk-&hellip; (leave blank to keep existing)"/></div>'+
     '<div class="form-group"><label>Base URL (optional)</label>'+
     '<input id="set-openai-url" value="'+esc(s.openai_base_url||'')+'"/>'+
     '<p class="hint">Default: https://api.openai.com/v1</p></div></div>'+
     '<div id="set-copilot-section" style="'+(s.use_copilot?'':' display:none')+'">'+
-    '<div class="form-group"><label>GitHub PAT for Copilot '+(s.has_copilot_token?'<span style="color:var(--green)">â</span>':'')+'</label>'+
-    '<input id="set-copilot-token" type="password" placeholder="ghp_â¦ (leave blank to use login token)"/>'+
+    '<div class="form-group"><label>GitHub PAT for Copilot '+(s.has_copilot_token?'<span style="color:var(--green)">&#9679;</span>':'')+'</label>'+
+    '<input id="set-copilot-token" type="password" placeholder="ghp_&hellip; (leave blank to use login token)"/>'+
     '<p class="hint">If empty, uses your GitHub login token.</p></div></div>'+
     '<div class="form-group"><label>Model</label><select id="set-model">'+modelOpts+'</select></div>'+
     '<div style="display:flex;gap:8px;margin-top:8px"><button class="primary" onclick="saveSettings()">Save</button>'+
@@ -387,12 +387,12 @@ document.getElementById('btn-ai').onclick=openAiMode;
 function openAiMode(){
   st.aiMode=true;
   document.querySelectorAll('.cat-item').forEach(function(e){e.classList.remove('active');});
-  setTitle('â¦ AI Search');
+  setTitle('&#10022; AI Search');
   document.getElementById('loading').style.display='none';
   document.getElementById('repo-grid').style.display='none';
   var empty=document.getElementById('empty');empty.style.display='';
   document.getElementById('empty-msg').innerHTML=
-    '<div style="margin-bottom:12px">Describe what youâre looking for in natural language.</div>'+
+    '<div style="margin-bottom:12px">Describe what you&#8217;re looking for in natural language.</div>'+
     '<div style="display:flex;gap:8px;max-width:420px;margin:0 auto">'+
     '<input id="ai-query" placeholder="e.g. fast async HTTP libraries" style="flex:1"/>'+
     '<button class="primary" onclick="runAiSearch()">Search</button></div>'+
@@ -406,12 +406,12 @@ function openAiMode(){
 async function runAiSearch(){
   var q=(document.getElementById('ai-query')||{}).value;
   if(!q||!q.trim())return;q=q.trim();
-  document.getElementById('ai-status').innerHTML='<span class="spin">â³</span> Searchingâ¦';
+  document.getElementById('ai-status').innerHTML='<span class="spin">&#10227;</span> Searching&hellip;';
   var r=await fetch('/api/ai-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});
   if(!r.ok){document.getElementById('ai-status').textContent=await r.text();return;}
   var repos=await r.json();
   document.getElementById('ai-status').textContent='';
-  setTitle('â¦ AI: "'+q+'"');
+  setTitle('&#10022; AI: "'+q+'"');
   renderRepos(repos);
 }
 
