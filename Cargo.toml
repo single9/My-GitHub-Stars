@@ -11,6 +11,7 @@ path = "src/main.rs"
 default = ["tui"]
 tui = []
 gui = ["dep:dioxus"]
+web = ["dep:axum", "dep:tower-http"]
 
 [dependencies]
 # TUI (always compiled; only used when the tui feature is active)
@@ -19,6 +20,10 @@ crossterm = "0.28"
 
 # GUI
 dioxus = { version = "0.7", features = ["desktop"], optional = true }
+
+# Web
+axum = { version = "0.8", optional = true }
+tower-http = { version = "0.6", features = ["cors"], optional = true }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

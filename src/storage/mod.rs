@@ -266,7 +266,7 @@ impl Database {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct CategoryRow {
     pub id: i64,
     pub name: String,
@@ -274,7 +274,7 @@ pub struct CategoryRow {
     pub count: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct RepoRow {
     pub id: i64,
     pub github_id: i64,

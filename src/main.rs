@@ -10,6 +10,9 @@ mod tui;
 #[cfg(feature = "gui")]
 mod gui;
 
+#[cfg(feature = "web")]
+mod web;
+
 use anyhow::Result;
 
 // ── GUI entry point ───────────────────────────────────────────────────────────
@@ -18,8 +21,15 @@ fn main() {
     gui::run();
 }
 
+// ── Web entry point ───────────────────────────────────────────────────────────
+#[cfg(all(feature = "web", not(feature = "gui")))]
+#[tokio::main]
+async fn main() -> Result<()> {
+    web::run().await
+}
+
 // ── TUI entry point ───────────────────────────────────────────────────────────
-#[cfg(not(feature = "gui"))]
+#[cfg(not(any(feature = "gui", feature = "web")))]
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = config::Config::load()?;
