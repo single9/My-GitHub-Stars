@@ -109,11 +109,11 @@
       <span class="count" id="count-all"></span>
     </div>
     <div id="cat-lang-header" class="sidebar-section collapsible" style="display:none" onclick="toggleSection('lang')">
-      <span>Languages</span><span id="lang-chevron">&#x25BC;</span>
+      <span>Languages</span><span id="lang-chevron">&#x25B6;</span>
     </div>
     <div id="cat-lang"></div>
     <div id="cat-topic-header" class="sidebar-section collapsible" style="display:none" onclick="toggleSection('topic')">
-      <span>Topics</span><span id="topic-chevron">&#x25BC;</span>
+      <span>Topics</span><span id="topic-chevron">&#x25B6;</span>
     </div>
     <div id="cat-topic"></div>
   </div>
@@ -241,7 +241,7 @@ async function loadStats(){
 }
 
 var _allCats=[];
-var _collapsed={lang:false,topic:false};
+var _collapsed={lang:true,topic:true};
 
 async function loadCategories(){
   _allCats=await fetch('/api/categories').then(function(r){return r.json();});
