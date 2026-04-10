@@ -434,7 +434,7 @@ function openAiMode(){
     '<div id="ai-status" style="margin-top:12px;color:var(--muted);font-size:12px"></div>';
   setTimeout(function(){
     var inp=document.getElementById('ai-query');
-    if(inp){inp.focus();inp.addEventListener('keydown',function(e){if(e.key==='Enter')runAiSearch();});}
+    if(inp){inp.focus();inp.addEventListener('keydown',function(e){if(e.isComposing||e.keyCode===229)return;if(e.key==='Enter')runAiSearch();});}
   },50);
 }
 
