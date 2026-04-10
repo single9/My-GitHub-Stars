@@ -51,6 +51,11 @@ impl Database {
 
             CREATE INDEX IF NOT EXISTS idx_repos_language ON repos(language);
             CREATE INDEX IF NOT EXISTS idx_repos_starred_at ON repos(starred_at);
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            );
             ",
             )
             .context("Failed to run database migration")
@@ -183,10 +188,8 @@ impl Database {
              WHERE r.full_name IN ({placeholders})"
         );
         let mut stmt = self.conn.prepare(&sql)?;
-        let params: Vec<&dyn rusqlite::ToSql> = names
-            .iter()
-            .map(|n| n as &dyn rusqlite::ToSql)
-            .collect();
+        let params: Vec<&dyn rusqlite::ToSql> =
+            names.iter().map(|n| n as &dyn rusqlite::ToSql).collect();
         let rows = stmt
             .query_map(params.as_slice(), |row| {
                 Ok(RepoRow {
@@ -238,11 +241,7 @@ impl Database {
             .query_row("SELECT COUNT(*) FROM categories", [], |r| r.get(0))?)
     }
 
-    fn query_repos(
-        &self,
-        sql: &str,
-        params: impl rusqlite::Params,
-    ) -> Result<Vec<RepoRow>> {
+    fn query_repos(&self, sql: &str, params: impl rusqlite::Params) -> Result<Vec<RepoRow>> {
         let mut stmt = self.conn.prepare(sql)?;
         let rows = stmt
             .query_map(params, |row| {

@@ -160,10 +160,9 @@ It provides a read-only browse and search interface backed by the same local SQL
 | Linux   | `~/.config/my-gh-stars/`                     |
 | Windows | `%APPDATA%\my-gh-stars\`                     |
 
-| File          | Contents                                       |
-| ------------- | ---------------------------------------------- |
-| `config.toml` | Auth token, client ID, AI API key, preferences |
-| `stars.db`    | SQLite database of repos and categories        |
+| File       | Contents                                                         |
+| ---------- | ---------------------------------------------------------------- |
+| `stars.db` | SQLite database — repos, categories, and all app settings/tokens |
 
 ## AI Search
 
@@ -212,12 +211,7 @@ Press `m` in Settings to open the model selection menu:
 
 ### Custom base URL / local models
 
-Edit `config.toml` directly to point at a different endpoint:
-
-```toml
-openai_base_url = "http://localhost:11434/v1"
-openai_model    = "llama3"
-```
+Open **Settings** (`s`), set the **API Base URL** field to your local endpoint, and pick (or type) a model name. Settings are saved to `stars.db` automatically.
 
 ## Architecture
 
@@ -229,7 +223,7 @@ src/
 ├── api/             GitHub REST API client (paginated starred fetch)
 ├── auth/            OAuth Device Flow (request code → poll for token)
 ├── classifier/      Categorise repos by language + topic tags
-├── config/          TOML config load/save (includes AI settings)
+├── config/          Config struct; load/save via SQLite settings table
 ├── storage/         SQLite schema and queries (rusqlite)
 ├── tui/
 │   ├── events.rs    Crossterm event polling
@@ -249,4 +243,3 @@ src/
 ## License
 
 MIT
-
