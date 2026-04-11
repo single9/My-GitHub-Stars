@@ -553,6 +553,7 @@
         deviceCode: null,
         pollTimer: null,
         pollInterval: 5000,
+        verificationUri: null,
       };
 
       function esc(s) {
@@ -652,8 +653,12 @@
             '<p style="color:var(--muted);margin-bottom:16px;font-size:13px">Click below to start GitHub Device Flow authentication.</p>' +
             '<button class="primary" onclick="startDeviceFlow()">Start authentication</button></div>' +
             '<div id="login-step-code" class="step">' +
-            '<p style="color:var(--muted);margin-bottom:12px;font-size:13px">Go to <a id="verify-link" href="" target="_blank"></a> and enter this code:</p>' +
-            '<div class="login-code" id="login-user-code">&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;</div>' +
+            '<p style="color:var(--muted);margin-bottom:12px;font-size:13px">Enter this code at GitHub to authorize:</p>' +
+            '<div style="position:relative;display:flex;align-items:center;gap:8px">' +
+            '<div class="login-code" id="login-user-code" style="flex:1">&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;</div>' +
+            '<button id="login-copy-btn" onclick="copyLoginCode()" title="Copy code" style="flex-shrink:0;padding:6px 10px;font-size:18px;border-color:var(--border)">&#128203;</button></div>' +
+            '<div style="text-align:center;margin-top:12px">' +
+            '<button class="primary" onclick="openGitHubAuth()">Open GitHub &#8599;</button></div>' +
             '<p id="login-wait-msg" style="color:var(--muted);margin-top:12px;font-size:13px;text-align:center"><span class="spin">&#8987;</span> Waiting for authorization&#8230;</p>' +
             '<p id="login-error-msg" style="color:var(--red);display:none;margin-top:8px;font-size:13px;text-align:center"></p>' +
             '<div id="login-retry-btn" style="display:none;text-align:center;margin-top:12px"><button onclick="startDeviceFlow()">Retry</button></div></div>' +
@@ -690,10 +695,13 @@
         var data = await r.json();
         st.deviceCode = data.device_code;
         st.pollInterval = (data.interval || 5) * 1000;
+        st.verificationUri = data.verification_uri;
         document.getElementById('login-user-code').textContent = data.user_code;
         var lnk = document.getElementById('verify-link');
-        lnk.href = data.verification_uri;
-        lnk.textContent = data.verification_uri;
+        if (lnk) {
+          lnk.href = data.verification_uri;
+          lnk.textContent = data.verification_uri;
+        }
         var waitMsg = document.getElementById('login-wait-msg');
         var errMsg = document.getElementById('login-error-msg');
         var retryBtn = document.getElementById('login-retry-btn');
@@ -704,7 +712,45 @@
         }
         if (retryBtn) retryBtn.style.display = 'none';
         setStep('login-step-code');
+        // Auto-copy code to clipboard so user can paste immediately on GitHub page
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(data.user_code).catch(function () {});
+        }
         st.pollTimer = setInterval(pollAuth, st.pollInterval);
+      }
+
+      function copyLoginCode() {
+        var code = document.getElementById('login-user-code').textContent;
+        if (!code || code.includes('\u2014')) return;
+        if (navigator.clipboard) {
+          navigator.clipboard
+            .writeText(code)
+            .then(function () {
+              var btn = document.getElementById('login-copy-btn');
+              if (btn) {
+                btn.textContent = '\u2713';
+                setTimeout(function () {
+                  btn.textContent = '\uD83D\uDCCB';
+                }, 1500);
+              }
+              toast('Code copied!', 'ok');
+            })
+            .catch(function () {
+              toast('Copy failed — please select and copy manually', 'err');
+            });
+        } else {
+          toast('Copy not supported in this browser', 'err');
+        }
+      }
+
+      function openGitHubAuth() {
+        var code = document.getElementById('login-user-code').textContent;
+        if (navigator.clipboard && code && !code.includes('\u2014')) {
+          navigator.clipboard.writeText(code).catch(function () {});
+        }
+        if (st.verificationUri) {
+          window.open(st.verificationUri, '_blank');
+        }
       }
 
       async function pollAuth() {
