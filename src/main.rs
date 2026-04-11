@@ -1,7 +1,12 @@
-mod app;
+#![cfg_attr(
+    all(feature = "gui", target_os = "windows"),
+    windows_subsystem = "windows"
+)]
+
 mod ai;
-mod auth;
 mod api;
+mod app;
+mod auth;
 mod classifier;
 mod config;
 mod storage;
