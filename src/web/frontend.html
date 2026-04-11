@@ -1228,7 +1228,7 @@
         document.querySelectorAll('.cat-item').forEach(function (e) {
           e.classList.remove('active');
         });
-        setTitle('&#10022; AI Search');
+        setTitle('✦ AI Search');
         document.getElementById('loading').style.display = 'none';
         document.getElementById('repo-grid').style.display = 'none';
         var empty = document.getElementById('empty');
@@ -1268,7 +1268,7 @@
         }
         var repos = await r.json();
         document.getElementById('ai-status').textContent = '';
-        setTitle('&#10022; AI: "' + q + '"');
+        setTitle('✦ AI: "' + q + '"');
         renderRepos(repos);
       }
 
