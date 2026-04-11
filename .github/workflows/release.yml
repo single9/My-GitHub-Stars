@@ -155,6 +155,17 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Changelog
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -165,4 +176,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
-          generate_release_notes: true
+          body: ${{ steps.git-cliff.outputs.content }}
