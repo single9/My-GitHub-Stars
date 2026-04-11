@@ -552,6 +552,7 @@
         bgSyncSource: null,
         deviceCode: null,
         pollTimer: null,
+        pollInterval: 5000,
       };
 
       function esc(s) {
@@ -653,7 +654,9 @@
             '<div id="login-step-code" class="step">' +
             '<p style="color:var(--muted);margin-bottom:12px;font-size:13px">Go to <a id="verify-link" href="" target="_blank"></a> and enter this code:</p>' +
             '<div class="login-code" id="login-user-code">&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;</div>' +
-            '<p style="color:var(--muted);margin-top:12px;font-size:13px;text-align:center"><span class="spin">&#8987;</span> Waiting for authorization&#8230;</p></div>' +
+            '<p id="login-wait-msg" style="color:var(--muted);margin-top:12px;font-size:13px;text-align:center"><span class="spin">&#8987;</span> Waiting for authorization&#8230;</p>' +
+            '<p id="login-error-msg" style="color:var(--red);display:none;margin-top:8px;font-size:13px;text-align:center"></p>' +
+            '<div id="login-retry-btn" style="display:none;text-align:center;margin-top:12px"><button onclick="startDeviceFlow()">Retry</button></div></div>' +
             '<div id="login-step-done" class="step">' +
             '<p style="color:var(--green);font-size:16px;text-align:center;margin-top:24px">&#10003; Authenticated!</p>' +
             '<div style="text-align:center;margin-top:16px"><button class="primary" onclick="closeDrawer()">Close</button></div></div>';
@@ -675,6 +678,10 @@
       }
 
       async function startDeviceFlow() {
+        if (st.pollTimer) {
+          clearInterval(st.pollTimer);
+          st.pollTimer = null;
+        }
         var r = await fetch('/api/auth/start', { method: 'POST' });
         if (!r.ok) {
           toast(await r.text(), 'err');
@@ -682,13 +689,22 @@
         }
         var data = await r.json();
         st.deviceCode = data.device_code;
+        st.pollInterval = (data.interval || 5) * 1000;
         document.getElementById('login-user-code').textContent = data.user_code;
         var lnk = document.getElementById('verify-link');
         lnk.href = data.verification_uri;
         lnk.textContent = data.verification_uri;
+        var waitMsg = document.getElementById('login-wait-msg');
+        var errMsg = document.getElementById('login-error-msg');
+        var retryBtn = document.getElementById('login-retry-btn');
+        if (waitMsg) waitMsg.style.display = '';
+        if (errMsg) {
+          errMsg.textContent = '';
+          errMsg.style.display = 'none';
+        }
+        if (retryBtn) retryBtn.style.display = 'none';
         setStep('login-step-code');
-        var interval = (data.interval || 5) * 1000;
-        st.pollTimer = setInterval(pollAuth, interval);
+        st.pollTimer = setInterval(pollAuth, st.pollInterval);
       }
 
       async function pollAuth() {
@@ -697,14 +713,36 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ device_code: st.deviceCode }),
         });
-        if (!r.ok) return;
+        if (!r.ok) {
+          clearInterval(st.pollTimer);
+          st.pollTimer = null;
+          var msg = 'Authentication failed. Please retry.';
+          try {
+            msg = (await r.text()) || msg;
+          } catch (ex) {}
+          var waitMsg = document.getElementById('login-wait-msg');
+          var errMsg = document.getElementById('login-error-msg');
+          var retryBtn = document.getElementById('login-retry-btn');
+          if (waitMsg) waitMsg.style.display = 'none';
+          if (errMsg) {
+            errMsg.textContent = msg;
+            errMsg.style.display = '';
+          }
+          if (retryBtn) retryBtn.style.display = '';
+          return;
+        }
         var data = await r.json();
         if (data.status === 'authenticated') {
           clearInterval(st.pollTimer);
+          st.pollTimer = null;
           st.authenticated = true;
           setStep('login-step-done');
           loadAuthStatus();
           toast('Authenticated!', 'ok');
+        } else if (data.status === 'slow_down') {
+          clearInterval(st.pollTimer);
+          st.pollInterval += 5000;
+          st.pollTimer = setInterval(pollAuth, st.pollInterval);
         }
       }
 
